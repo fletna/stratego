@@ -18,7 +18,7 @@ signature
     SortNoArgs   : string -> Sort
     RDefNoArgs   : string * Rule -> Def
     SDefNoArgs   : string * Strategy -> Def
-    SDefTypeCheck: string * Strategy -> Def
+    SDefTypeCheck: string * string * list(Type) -> Def
     Rule         : Term * Term * list(RuleCond) -> Rule
     
     WhereClause  : Strategy -> RuleCond
@@ -72,6 +72,11 @@ rules
   insertCasts : Module -> Module
   insertCasts(m) = m' :- moduleOkC(m) == m'.
   
+  insertTypeChecks : Module -> Module
+  insertTypeChecks(Module(x, sections)) = Module(x, sections') :- {typechecks}
+    insertTypeCheckSections(sections) == typechecks,
+    sections' == concatenate(sections, [typechecks]).
+    
   consistent: TYPE * TYPE
   consistent(DYN(), T).
   consistent(T, DYN()).
@@ -80,7 +85,7 @@ rules
   
   cast: Term * TYPE * TYPE -> Term
   cast(e, T, T) = e.
-  cast(e, T1, T2) = CastTerm(e, T1, T2).
+  cast(e, T1, T2) = CastTerm(e, T1, T2) :- consistent(T1, T2).
     
 rules moduleOk : Module 
  
@@ -88,11 +93,9 @@ rules moduleOk : Module
 
   moduleOkC : Module -> Module
 
-  moduleOkC(Module(x, sections)) = Module(x, sections'') :- {s typechecks sections'}
+  moduleOkC(Module(x, sections)) = Module(x, sections') :- {s}
     new s,
-    sectionsOk(s, sections) == sections''.//,
-//    insertTypeCheckSections(s, sections) == typechecks,
-//    sections'' == concatenate(sections', [typechecks]).
+    sectionsOk(s, sections) == sections'.
 
   concatenate : list(Section) * list(Section) -> list(Section)
   concatenate([s], s2) = s3 :- s3 == [s|s2].
@@ -153,7 +156,7 @@ rules // rules
   rulesOk maps ruleOk(*, list(*)) = list(*)
   
   ruleOk(s, SDefNoArgs(f, rules)) = SDefNoArgs(f, rules).
-  ruleOk(s, SDefTypeCheck(f, rules)) = SDefTypeCheck(f, rules).
+  ruleOk(s, SDefTypeCheck(f, c, rules)) = SDefTypeCheck(f, c, rules).
   
   ruleOk(s, RDefNoArgs(f, Rule(trm1, trm2, cond))) = RDefNoArgs(f, Rule(trm1, trm2', cond'))  :- {s_r t1 t2}
     new s_r, s_r -P-> s,
@@ -286,28 +289,22 @@ rules // rules
   
 rules // insertTypeChecks
 
-  insertTypeCheckSection : scope * Section -> Section
-  insertTypeCheckSections maps insertTypeCheckSection(*, list(*)) = *
+  insertTypeCheckSection : Section -> Section
+  insertTypeCheckSections maps insertTypeCheckSection(list(*)) = *
   
-  insertTypeCheckSection(s, Signature(sigSec)) = Rules(rs) :-
-    insertTypeCheckSigSections(s, sigSec) == rs.
+  insertTypeCheckSection(Signature(sigSec)) = Rules(rs) :-
+    insertTypeCheckSigSections(sigSec) == rs.
   
-  insertTypeCheckSection(s, Rules(rs)) = nil.
+  insertTypeCheckSection(Rules(rs)) = nil.
   
-  insertTypeCheckSigSection : scope * SigSection -> list(Def)
-  insertTypeCheckSigSections maps insertTypeCheckSigSection(*, list(*)) = *
+  insertTypeCheckSigSection : SigSection -> list(Def)
+  insertTypeCheckSigSections maps insertTypeCheckSigSection(list(*)) = *
   
-  insertTypeCheckSigSection(s, Sorts(sorts)) = nil.
-  insertTypeCheckSigSection(s, Constructors(cons)) = def :-
-    insertTypeCheckCons(s, cons) == def.
+  insertTypeCheckSigSection(Sorts(sorts)) = nil.
+  insertTypeCheckSigSection(Constructors(cons)) = def :-
+    insertTypeCheckCons(cons) == def.
     
-  insertTypeCheckCon : scope * OpDecl -> Def
-  insertTypeCheckCons maps insertTypeCheckCon(*, list(*)) = list(*)
+  insertTypeCheckCon : OpDecl -> Def
+  insertTypeCheckCons maps insertTypeCheckCon(list(*)) = list(*)
   
-  insertTypeCheckCon(s, OpDecl(c, FunType(srts, ConstType(SortNoArgs(typ))))) = strat :- {args}
-    toWlds(srts) == args,
-    strat == SDefTypeCheck(typ, Match(NoAnnoList(Op(c, args)))).
-
-  toWld : Type -> Term
-  toWlds maps toWld(list(*)) = list(*)
-  toWld(ConstType(SortNoArgs(srt))) = Wld().
+  insertTypeCheckCon(OpDecl(c, FunType(srts, ConstType(SortNoArgs(typ))))) = SDefTypeCheck(typ, c, srts).

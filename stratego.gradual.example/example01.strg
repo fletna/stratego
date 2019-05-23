@@ -6,18 +6,15 @@ signature
     Var  : String -> Exp 
     Int  : Int -> Exp
     Plus : Exp * Exp -> Exp
-    Minus: Exp * Exp -> Exp
-    plus : Int * Int -> Int
      
 rules
 
-eval : i -> Int(i)
+// In this rule i and j are unbound, because they
+// can match on any tuple.
+eval : (i, j) -> Plus(i, j)
 
-eval2 : Var(i) -> Var(i)
-
-eval3 : Plus(i, j) -> Minus(j, i)
-
-eval4: Var(i) -> i
-
-eval5: i -> (i, i)
+// This rule should have type inference because there
+// is a constructor on the left side of the rule. And
+// we assume that constructors are well-formed.
+swap-plus : Plus(i, j) -> Plus(j, i)
 
