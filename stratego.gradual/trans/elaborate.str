@@ -1,8 +1,9 @@
 module elaborate
 
 imports
-  signatures/-
-  signatures/sugar/-
+  signatures/stratego/-
+  signatures/stratego/sugar/-
+  signatures/stratego/core/-
   analysis
   statixruntime
   pp
