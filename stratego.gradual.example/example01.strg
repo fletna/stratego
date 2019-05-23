@@ -17,3 +17,4 @@ eval : (i, j) -> Plus(i, j)
 // is a constructor on the left side of the rule. And
 // we assume that constructors are well-formed.
 swap-plus : Plus(i, j) -> Plus(j, i)
+
