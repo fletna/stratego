@@ -7,10 +7,12 @@ imports
   analysis
   statixruntime
   pp
+  pp/-
   
   signature
   constructors 
     SDefTypeCheck : ID * ID * List(Type) -> Def
+    CastValStrat : Strategy
 
 rules // insert casts
 
@@ -34,13 +36,35 @@ rules // insert type checks
   transform-typechecks = topdown(try(transform-typecheck))
   
   transform-typecheck :
-      SDefTypeCheck(typ, name, args) -> RDefNoArgs(typ', Rule(op, op, []))
-    where 
+  SDefTypeCheck(typ, name, args) -> SDefNoArgs(typ', Match(NoAnnoList(Op(name, args'))))
+    where
       typ' := <conc-strings> ("strategoGradual--is-a-", typ)
     ; args' := <map(insert-typecheck-arg)> args
-    ; op := NoAnnoList(Op(name, args'))
   
-  insert-typecheck-arg = !Var(<newname> "sg_")
+  insert-typecheck-arg = !Wld()
+  
+  transform-typecheck: 
+      CastValStrat() -> SDefT(
+          "cast-value"
+        , [DefaultVarDec("s")]
+        , [DefaultVarDec("typ")]
+        , LChoice(
+            CallNoArgs(SVar("s"))
+          , CallT(
+              SVar("report-failure")
+            , []
+            , [ App(
+                  CallNoArgs(SVar("concat-strings"))
+                , NoAnnoList(
+                    List(
+                      [NoAnnoList(Str("\"Cast to \"")), Var("typ"), NoAnnoList(Str("\" failed\""))]
+                    )
+                  )
+                )
+              ]
+            )
+          )
+        )
 
 rules // cast terms
 
@@ -50,6 +74,7 @@ rules // cast terms
       CastTerm(e, _, SRT(t)) -> App(CallNoArgs(SVar(name)), e)
     where
       name := <conc-strings> ("strategoGradual--is-a-", t)
+  
 
 rules // menu items
 
