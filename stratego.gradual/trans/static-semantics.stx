@@ -74,7 +74,7 @@ rules
   
   consistent: TYPE * TYPE
   consistent(DYN(), T).
-  consistent(T, DYN).
+  consistent(T, DYN()).
   
   consistentL maps consistent(list(*), list(*))
   
@@ -202,6 +202,19 @@ rules // rules
   typeOfMatchTerm : scope * Term -> TYPE
   typeOfMatchTerms maps typeOfMatchTerm(*, list(*)) = list(*)
   
+  assertTypeOfMatchTerm : scope * Term -> TYPE
+  assertTypeOfMatchTerms maps assertTypeOfMatchTerm(*, list(*)) = list(*)
+  
+  assertTypeOfMatchTerm(s, Var(x)) = t :-
+  	s -> Var{x@x} with typeOfVar t.
+  	
+  assertTypeOfMatchTerm(s, Tuple(trms)) = TUP(ts) :-
+  	assertTypeOfMatchTerms(s, trms) == ts.
+  	
+  assertTypeOfMatchTerm(s, Op(c, trms)) = t :- {p d ts ts'}
+  	typeOfCons of Cons{c@c} in s |-> [(p, (d, FUN(ts, t)))],
+  	assertTypeOfMatchTerms(s, trms) == ts.
+  
   typeOfMatchTerm(s, NoAnnoList(Var(x))) = DYN() :-
     s -> Var{x@x} with typeOfVar DYN().  
   
@@ -214,14 +227,15 @@ rules // rules
   
   typeOfMatchTerm(s, Op(c, trms)) = t :- {p d ts ts'}
     typeOfCons of Cons{c@c} in s |-> [(p, (d, FUN(ts, t)))],
-    typeOfMatchTerms(s, trms) == ts', consistentL(ts, ts').
+    //typeOfMatchTerms(s, trms) == ts', consistentL(ts, ts').
+    assertTypeOfMatchTerms(s, trms) == ts.
    
   typeOfMatchTerm(s, Tuple(trms)) = TUP(ts) :- 
   	typeOfMatchTerms(s, trms) == ts.
   	
+  // BUILD TERMS	
   typeOfBuildTerm : scope * Term -> (Term * TYPE)
   typeOfBuildTerms: scope * list(Term) -> (list(Term) * list(TYPE))
-  
   
   typeOfBuildTerms(s, [term]) = ([trm], [ty]) :-
   	typeOfBuildTerm(s, term) == (trm, ty).
@@ -230,9 +244,14 @@ rules // rules
     typeOfBuildTerm(s, hd) == (hd', t),
     typeOfBuildTerms(s, terms) == (terms', types).
   
-  
   typeOfBuildTerm(s, NoAnnoList(term)) = (NoAnnoList(term'), t) :-
     typeOfBuildTerm(s, term) == (term', t).
+  
+  typeOfBuildTerm(s, Var(x)) = (Var(x), t) :- 
+   	typeOfVar of Var{x@x} in s |-> [(_, (_, t))].
+  
+  typeOfBuildTerm(s, Tuple(terms)) = (Tuple(terms'), TUP(ts)) :- 
+  	typeOfBuildTerms(s, terms) == (terms', ts).
     
   typeOfBuildTerm(s, App(CallNoArgs(SVar(str)), term)) = t :- {p d t1 t2}
   	typeOfRule of Rule{str@str} in s |-> [(p, (d, FUN([t1], t2)))],
@@ -241,17 +260,30 @@ rules // rules
   typeOfBuildTerm(s, App(Seq(str1, str2), term)) = (term', t') :- {t}
   	typeOfStrategy(s, Seq(str1, str2)) == FUN([t], t'),
   	typeOfBuildTerm(s, term) == (term', t).
-  
-  typeOfBuildTerm(s, Var(x)) = (trm, t) :- {p d t'}
-   typeOfVar of Var{x@x} in s |-> [(p, (d, t'))],
-   cast(Var(x), t', t) == trm.
-
+  	
   typeOfBuildTerm(s, Op(c, trms)) = (Op(c, trms'), t) :- {p d ts}
     typeOfCons of Cons{c@c} in s |-> [(p, (d, FUN(ts, t)))],
-    typeOfBuildTerms(s, trms) == (trms', ts).
+    typeOfBuildConsTerms(s, trms) == (trms', ts).
     
   typeOfBuildTerm(s, CastTerm(e, t1, t2)) = (CastTerm(e, t1, t2), t). // Silence CastTerm
-    
+  
+  // BUILD TERMS WITHIN CONSTRUCTORS
+  typeOfBuildConsTerm: scope * Term -> (Term * TYPE)
+  typeOfBuildConsTerms: scope * list(Term) -> (list(Term) * list(TYPE))
+  
+  typeOfBuildConsTerm(s, Var(x)) = (trm, t) :- {p d t'}
+  	typeOfVar of Var{x@x} in s |-> [(p, (d, t'))],
+   	cast(Var(x), t', t) == trm.
+  
+  typeOfBuildConsTerm(s, term) = typeOfBuildTerm(s, term).
+  
+  typeOfBuildConsTerms(s, [term]) = ([trm], [ty]) :-
+  	typeOfBuildConsTerm(s, term) == (trm, ty).
+  	
+  typeOfBuildConsTerms(s, [hd|terms]) = ([hd'|terms'], [t|types]) :-
+    typeOfBuildConsTerm(s, hd) == (hd', t),
+    typeOfBuildConsTerms(s, terms) == (terms', types).
+  
 rules // insertTypeChecks
 
   insertTypeCheckSection : scope * Section -> Section

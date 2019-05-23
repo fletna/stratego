@@ -6,7 +6,7 @@ signature
     Var  : String -> Exp 
     Int  : Int -> Exp
     Plus : Exp * Exp -> Exp
-    
+    Minus: Exp * Exp -> Exp
     plus : Int * Int -> Int
      
 rules
@@ -14,3 +14,10 @@ rules
 eval : i -> Int(i)
 
 eval2 : Var(i) -> Var(i)
+
+eval3 : Plus(i, j) -> Minus(j, i)
+
+eval4: Var(i) -> i
+
+eval5: i -> (i, i)
+
