@@ -1,0 +1,57 @@
+module example01
+
+signature
+  sorts Exp String Int Stmt
+  constructors
+    Var  : String -> Exp 
+    Int  : Int -> Exp
+    Plus : Exp * Exp -> Exp
+    Minus : Exp * Exp -> Exp
+    Op   : String * Exp -> Exp
+    
+    FunApp : String * Exp -> Stmt
+rules
+
+// This rule is statically checkable because i cannot
+// be both of type Int and String, there should be an
+// error on the right hand side of the rule
+invalid-type : Int(i) -> Var(i)
+invalid-type : Int(i) -> Var(i : Int => String)
+
+// This rule is statically checkable because i cannot
+// be cast to two different types, in this case String
+// and Exp. The error should be on both i on the right
+// hand side of the rule.
+invalid-cast : i -> Op(i, i)
+invalid-cast : i -> Op(i : ? => String, i : ? => Exp)
+
+// Here i is unbound. But it is still possible to infer
+// what it's type should be
+my-specific-rule : i -> Plus(i, i)
+my-specific-rule : i -> Plus(i : ? => Exp, i : ? => Exp)
+
+// Question: Do we typecheck rule application?
+// Here it is easily possible to check as there is one 
+// rule to check and it is possible to infer what type
+// it is.
+call-my-specific-rule : Var(a) -> <my-specific-rule> a
+call-my-specific-rule : Var(a) -> <my-specific-rule> (a : String => Exp)
+
+// For type checking rule application the type checker
+// should look in the scope graph for all rules of a 
+// specific name to check if one of them will match the
+// type found.
+
+// my-very-specific-rule : Exp | Stmt  -> Exp
+// This rule is defined for Exp and Stmt, but will 
+// still fail for anything other than Plus and FunApp.
+my-very-specific-rule : Plus(i, j) -> Minus(i, j)
+my-very-specific-rule : Plus(i, j) -> Minus(i : Exp => Exp, j : Exp => Exp)
+
+my-very-specific-rule : FunApp(i, j) -> Op(i, j)
+my-very-specific-rule : FunApp(i, j) -> Op(i : String => String, j : Exp => Exp)
+
+// This rule will have to accept a union type if we 
+// want to completely check it.
+call-my-very-specific-rule : a -> <my-very-specific-rule> a
+call-my-very-specific-rule : a -> <my-very-specific-rule> (a : ? => ExpOrStmt)
