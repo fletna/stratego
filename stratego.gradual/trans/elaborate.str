@@ -50,18 +50,22 @@ rules // insert type checks
         , [DefaultVarDec("typ")]
         , LChoice(
             CallNoArgs(SVar("s"))
-          , CallT(
-              SVar("report-failure")
-            , []
-            , [ App(
-                  CallNoArgs(SVar("concat-strings"))
-                , NoAnnoList(
-                    List(
-                      [NoAnnoList(Str("\"Cast to \"")), Var("typ"), NoAnnoList(Str("\" failed\""))]
+          , Seq(
+            Match(Var("a")), 
+            CallT(
+                SVar("report-failure")
+              , []
+              , [ App(
+                    CallNoArgs(SVar("concat-strings"))
+                  , NoAnnoList(
+                      List(
+                        [NoAnnoList(Str("\"Cast to \"")), Var("typ"), NoAnnoList(Str("\" failed\""))]
+                      )
                     )
-                  )
-                )
-              ]
+                  ),
+                  Var("a")
+                ]
+              )
             )
           )
         )
@@ -71,9 +75,13 @@ rules // cast terms
   transform-cast-terms = topdown(try(transform-cast-term))
   
   transform-cast-term :
-      CastTerm(e, _, SRT(t)) -> App(CallNoArgs(SVar(name)), e)
+      CastTerm(e, _, SRT(t)) ->App(
+        CallT(SVar("cast-value"), [CallNoArgs(SVar(name))], [NoAnnoList(Str(nameQ))])
+      , e
+      )
     where
       name := <conc-strings> ("strategoGradual--is-a-", t)
+    ; nameQ := <concat-strings> ["\"", t, "\""]
   
 
 rules // menu items
@@ -109,6 +117,6 @@ rules // menu items
   menu-source-elaborate-pp:
       (source-ast, _, _, path, project-path) -> (filename, pretty-printed)
     with
-      filename := <guarantee-extension(|"el.strg")> path
+      filename := <guarantee-extension(|"el.str")> path
     ; transformed-ast := <insert-casts(|path);insert-typechecks(|path);transform-cast-terms> source-ast
     ; pretty-printed := <pp-StrategoGradual-string> transformed-ast
