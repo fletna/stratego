@@ -7,6 +7,7 @@ signature
     Module       : string * list(Section) -> Module
     Signature    : list(SigSection) -> Section
     Rules        : list(Def) -> Section
+    Strategies   : list(Def) -> Section
     
     Sorts        : list(Sort) -> SigSection
     Constructors : list(OpDecl) -> SigSection
@@ -26,6 +27,7 @@ signature
     
     BA           : Strategy * Term -> Strategy
     CallNoArgs   : SVar -> Strategy
+    CastValStrat : Def
    
     SVar         : string -> SVar
     
@@ -260,7 +262,8 @@ rules // insertTypeChecks
   insertTypeCheckSection : Section -> Section
   insertTypeCheckSections maps insertTypeCheckSection(list(*)) = *
   
-  insertTypeCheckSection(Signature(sigSec)) = Rules(rs) :-
+  insertTypeCheckSection(Signature(sigSec)) = Strategies([castVal|rs]) :-
+    castVal == CastValStrat(),
     insertTypeCheckSigSections(sigSec) == rs.
   
   insertTypeCheckSection(Rules(rs)) = nil.
