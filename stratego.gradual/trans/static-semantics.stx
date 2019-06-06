@@ -40,6 +40,7 @@ signature
     Seq			 : Strategy * Strategy -> Strategy
     Assign       : Term * Term -> Strategy
     Match        : Term -> Strategy
+    OfType       : Term * TYPE -> Term
     Id           : Term
     Wld          : Term
     
@@ -216,6 +217,9 @@ rules // rules
   assertTypeOfMatchTerm(s, Tuple(trms)) = TUP(ts) :-
   	assertTypeOfMatchTerms(s, trms) == ts.
   	
+  assertTypeOfMatchTerm(s, OfType(e, t)) = t' :-
+    assertTypeOfMatchTerm(s, e) == t.
+  	
   assertTypeOfMatchTerm(s, Op(c, trms)) = t :- {p d ts ts'}
   	typeOfCons of Cons{c@c} in s |-> [(p, (d, FUN(ts, t)))],
   	assertTypeOfMatchTerms(s, trms) == ts.
@@ -237,6 +241,10 @@ rules // rules
    
   typeOfMatchTerm(s, Tuple(trms)) = TUP(ts) :- 
   	typeOfMatchTerms(s, trms) == ts.
+  	
+  typeOfMatchTerm(s, OfType(e, t)) = t :- {t'}
+    typeOfMatchTerm(s, e) == t',
+    consistent(t, t').
   	
   // BUILD TERMS	
   typeOfBuildTerm : scope * Term -> (Term * TYPE)
@@ -271,6 +279,10 @@ rules // rules
     typeOfBuildConsTerms(s, trms) == (trms', ts).
     
   typeOfBuildTerm(s, CastTerm(e, t1, t2)) = (CastTerm(e, t1, t2), t). // Silence CastTerm
+  
+  typeOfBuildTerm(s, OfType(e, t)) = (CastTerm(e', t', t), t) :-
+    typeOfBuildTerm(s, e) == (e', t'),
+    consistent(t, t').
   
   // BUILD TERMS WITHIN CONSTRUCTORS
   typeOfBuildConsTerm: scope * Term -> (Term * TYPE)
