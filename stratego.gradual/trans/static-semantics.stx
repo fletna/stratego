@@ -20,6 +20,8 @@ signature
     RDefNoArgs   : string * Rule -> Def
     SDefNoArgs   : string * Strategy -> Def
     SDefTypeCheck: string * string * list(Type) -> Def
+    RDecl	     : string * TYPE * TYPE -> Def
+    RDeclT		 : string * list(TYPE) * list(TYPE) * TYPE -> Def
     Rule         : Term * Term * list(RuleCond) -> Rule
     
     WhereClause  : Strategy -> RuleCond
@@ -157,16 +159,37 @@ rules // rules
   ruleOk : scope * Def -> Def
   rulesOk maps ruleOk(*, list(*)) = list(*)
   
+  ruleOk(s, RDecl(f, t1, t2)) = RDecl(f, t1, t2) :-
+  	s -> Rule{f@f} with typeOfRule FUN([t1], t2). 
+   
   ruleOk(s, SDefNoArgs(f, rules)) = SDefNoArgs(f, rules).
   ruleOk(s, SDefTypeCheck(f, c, rules)) = SDefTypeCheck(f, c, rules).
   
-  ruleOk(s, RDefNoArgs(f, Rule(trm1, trm2, cond))) = RDefNoArgs(f, Rule(trm1, trm2', cond'))  :- {s_r t1 t2}
+  ruleOk(s, RDefNoArgs(f, Rule(trm1, trm2, cond))) = RDefNoArgs(f, Rule(trm1, trm2', cond'))  :- {s_r t1 t2 ts sg}
     new s_r, s_r -P-> s,
     typeOfMatchTerm(s_r, trm1) == t1,
     typeOfBuildTerm(s_r, trm2) == (trm2', t2),
     checkConds(s_r, cond) == cond',
-    s -> Rule{f@f} with typeOfRule FUN([t1], t2).
-   
+    typeOfRule of Rule{f@f} in s |-> sg.
+    resolveRule(s, f, sg, t1, t2).
+    //s -> Rule{f@f} with typeOfRule FUN([t1], t2).
+    
+  // if there is a rule declaration then use it
+  // if there is no rule decl. then set to dynamic
+  resolveRule: scope * string * list((path * (occurrence * TYPE))) * TYPE * TYPE
+  
+  resolveRule(s, f, [], _, _) :-
+  	s -> Rule{f@f} with typeOfRule FUN([DYN()], DYN()).
+  	
+  resolveRule(s, f, [(_, (_, FUN([t], t')))], t1, t2) :-
+  	consistent(t1, t),
+  	consistent(t2, t').
+  	
+  /*
+  resolveRule(s, f, [whatever], _, _) :-
+  	s -> Rule{f@f} with typeOfRule FUN([DYN()], DYN()).
+  */
+  
   checkCond: scope * RuleCond -> RuleCond
   checkConds maps checkCond(*, list(*)) = list(*)
   
@@ -181,26 +204,27 @@ rules // rules
   	checkStrategy(s, str) == str'.
   
   checkStrategy: scope * Strategy -> Strategy
+  	
+  checkStrategy(s, Seq(str1,str2)) = Seq(str1, str2) :- {t1 t2 t3}
+  	checkStrategy(s, str1) == t1,
+  	checkStrategy(s, str2) == t2,
+  	typeOfStrategy(s, Seq(str1, str2)) == t3.
+  	  
+  checkStrategy(s, Assign(Var(x), sth)) = Assign(Var(x), trm) :- {t}
+  	typeOfBuildTerm(s, sth) == (trm, t),
+  	s -> Var{x@x} with typeOfVar t.
+  	//typeOfVar of Var{x@x} in s |-> [(p, (d, t))],
   
   typeOfStrategy: scope * Strategy -> TYPE
   
   typeOfStrategy(s, Seq(str1, str2)) = FUN([t11], t22) :- {t12 t21}
   	typeOfStrategy(s, str1) == FUN([t11], t12),
   	typeOfStrategy(s, str2) == FUN([t21], t22),
-  	t12 == t21.
+  	consistent(t12,t21).
   	
   typeOfStrategy(s, CallNoArgs(SVar(str))) = t :- {p d t'}
   	typeOfRule of Rule{str@str} in s |-> [(p, (d, t'))],
   	t == t'.
-  	
-  checkStrategy(s, Seq(str1,str2)) = Seq(str1, str2) :- {t1 t2}
-  	checkStrategy(s, str1) == t1,
-  	checkStrategy(s, str2) == t2.
-  
-  checkStrategy(s, Assign(Var(x), sth)) = Assign(Var(x), sth) :- {t trm}
-  	typeOfBuildTerm(s, sth) == (trm, t),
-  	s -> Var{x@x} with typeOfVar t.
-  	//typeOfVar of Var{x@x} in s |-> [(p, (d, t))],
   
   typeOfTerm: scope * Term -> TYPE
   
@@ -258,13 +282,22 @@ rules // rules
   typeOfBuildTerm(s, Tuple(terms)) = (Tuple(terms'), TUP(ts)) :- 
   	typeOfBuildTerms(s, terms) == (terms', ts).
     
-  typeOfBuildTerm(s, App(CallNoArgs(SVar(str)), term)) = t :- {p d t1 t2}
-  	typeOfRule of Rule{str@str} in s |-> [(p, (d, FUN([t1], t2)))],
-  	typeOfBuildTerm(s, term) == (term, t1).
+  typeOfBuildTerm(s, App(CallNoArgs(SVar(str)), term)) = (trm, t') :- {p d ty term' t}
+  	// if type of rule is (DYN -> sth) then casting will be handled inside of rule
+  	// if type of rule isnt (DYN -> sth) then casting is handled on application site
+  	typeOfRule of Rule{str@str} in s |-> [(p, (d, FUN([t], t')))],
+  	typeOfBuildTerm(s, term) == (term', ty),
+	handleRuleApp(s, t, term', ty) == trm.  	
+  
+  handleRuleApp : scope * TYPE * Term * TYPE -> Term
+  handleRuleApp(s, DYN(), term, termType) = Var("x").
+  handleRuleApp(s, t, term, termType) = term' :-
+  	cast(term, termType, t) == term'.
   	
-  typeOfBuildTerm(s, App(Seq(str1, str2), term)) = (term', t') :- {t}
+  typeOfBuildTerm(s, App(Seq(str1, str2), term)) = (trm, t') :- {t term'}
   	typeOfStrategy(s, Seq(str1, str2)) == FUN([t], t'),
-  	typeOfBuildTerm(s, term) == (term', t).
+  	typeOfBuildTerm(s, term) == (term', t),
+  	handleRuleApp(s, t, term', t) == trm.
   	
   typeOfBuildTerm(s, Op(c, trms)) = (Op(c, trms'), t) :- {p d ts}
     typeOfCons of Cons{c@c} in s |-> [(p, (d, FUN(ts, t)))],

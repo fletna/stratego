@@ -7,13 +7,19 @@ imports
   stratego/sugar/rules
 
   context-free syntax
-    Term.CastTerm = [[Term] : [TYPE] => [TYPE]]
-    Term.OfType = [[Term] : [TYPE]]
+    Term.CastTerm = <<Term> : <TYPE> =\> <TYPE>>
+    Term.OfType = <<Term> : <TYPE>>
     
   sorts TYPE
   context-free syntax
     TYPE.SRT = Id
     TYPE.DYN = [?]
+    
+  context-free syntax
+  	RuleDef.RDecl = <<Id> :: <TYPE> -\> <TYPE>>
+  	RuleDef.RDeclT = <<Id> :: [<{TYPE ", "}*>] * [<{TYPE ", "}*>] * <TYPE> -\> <TYPE>>
 
   context-free priorities
-    RuleDef.RDefNoArgs > Term.OfType
+    RuleDef.RDefNoArgs > Term.OfType,
+    Term.CastTerm > Term.OfType,
+    Term.CastTerm > Strategy.AM
