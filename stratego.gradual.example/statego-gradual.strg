@@ -94,3 +94,27 @@ eval : a -> <eval1> (<cast-value(strategoGradual--is-a-Exp|"Exp")> a)
 // In this case `s` is of type String, `eval` expects a
 // value of type `Exp`, `String` and `Exp` are not consistent.
 eval : Var(s) -> <eval1> s
+
+// # Gradual typing on strategies
+
+// ## Creating typehints for strategies
+
+// Typehints for strategies can be created the same way as
+// typehints for rules.
+// strategy :: (in-types) -> (out-types)
+strat :: Exp -> String
+strat = ?Var(x); !x
+
+// TODO: Is effort made to check if a strategy adheres to
+// it's definition? Is this viable?
+
+// ## Typehints in strategies
+
+// Inside the following strategy the variable a is matched,
+// it is dynamic (?). The rule `eval1` is applied with the 
+// matched value, for this rule the types are defined.
+// Thus a cast is inserted.
+strat = ?a; eval1
+
+// This will result in the following stratego code.
+strat = ?a; cast-value(strategoGradual--is-a-Exp|"Exp"); eval1
