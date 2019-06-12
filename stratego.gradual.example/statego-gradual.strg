@@ -9,6 +9,31 @@ signature
      
 rules
 
+// # Introduction
+
+// A variable has a specific type or is dynamic. For
+// all cases where there is no specific type. The 
+// Variable is always dynamic.
+
+// A dynamic variable can be used in place of a specific type
+// but this will cause a type check at runtime.
+// A typed variable can be used anywhere where a dynamic
+// variable is required. This causes some runtime typecheck
+// down the line.
+
+// Types are considered compatible if either the following is true.
+// - They are the same type : e.g. Exp -> Exp
+// - From dynamic to a type : e.g. ? -> Exp
+// - From a type to dynamic : e.g. Exp -> ?
+// Any other case will cause an error during static analysis.
+// The case where types extend each other is part of future work.
+
+// The same applies to rules, everything is dynamic unless a
+// specific type is found. But for rules only a type hint can
+// make a rule be of a specific type. This is because type 
+// inference of rules is a whole subject in itself. Any rules
+// without a typehint are considered dynamic to dynamic (? -> ?).
+
 // # Gradual typing on basic rules
 
 // ## The normal case
