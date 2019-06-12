@@ -2,7 +2,7 @@ module static-semantics
 
 signature
   sorts Section SigSection Module OpDecl Sort Rule Term Type Def RuleCond
-        ConstType Strategy SVar
+        ConstType Strategy SVar Typedid
   constructors
     Module       : string * list(Section) -> Module
     Signature    : list(SigSection) -> Section
@@ -20,6 +20,13 @@ signature
     RDefNoArgs   : string * Rule -> Def
     SDefNoArgs   : string * Strategy -> Def
     SDefTypeCheck: string * string * list(Type) -> Def
+    ExtSDefInl   : string * list(Typedid) * list(Typedid) * Strategy -> Def
+    AnnoDef      : list(string) * Def -> Def
+    RDef         : string * list(Typedid) * Rule -> Def
+    RDefT        : string * list(Typedid) * list(Typedid) * Rule -> Def
+    SDefT        : string * list(Typedid) * list(Typedid) * Strategy -> Def
+    
+    VarDec       : string * Type -> Typedid
     Rule         : Term * Term * list(RuleCond) -> Rule
     
     WhereClause  : Strategy -> RuleCond
@@ -31,21 +38,41 @@ signature
    
     SVar         : string -> SVar
     
+    // Term
     CastTerm     : Term * TYPE * TYPE -> Term
+    BuildDefault : Term -> Term
+  	AnnoList     : Term * Term -> Term
     NoAnnoList   : Term -> Term
+    App			 : Strategy * Term -> Term
+    RootApp      : Strategy -> Term
+    
+    Char         : string -> Term
     Var          : string -> Term
     Tuple		 : list(Term) -> Term
+    List         : list(Term) -> Term
+    ListTail     : list(Term) * Term -> Term
+    BuildDefaultPT : Term -> Term
+    Int          : string -> Term
+    Real         : string -> Term
+    Str          : string -> Term
     Op           : string * list(Term) -> Term
-    App			 : Strategy * Term -> Term
-    Seq			 : Strategy * Strategy -> Strategy
-    Assign       : Term * Term -> Strategy
+    OpQ          : string * list(Term) -> Term
+    Explode      : Term * Term -> Term
+    As           : string * Term -> Term
     Match        : Term -> Strategy
     Id           : Term
     Wld          : Term
+    // Strategy
+    Seq			 : Strategy * Strategy -> Strategy
+    Assign       : Term * Term -> Strategy
+
     
   sorts TYPE
   constructors
     SRT : string -> TYPE
+    STRING : TYPE
+    INT : TYPE
+    REAL : TYPE
     FUN : list(TYPE) * TYPE -> TYPE
     TUP : list(TYPE) -> TYPE
     DYN : TYPE
@@ -271,6 +298,12 @@ rules // rules
     typeOfBuildConsTerms(s, trms) == (trms', ts).
     
   typeOfBuildTerm(s, CastTerm(e, t1, t2)) = (CastTerm(e, t1, t2), t). // Silence CastTerm
+  
+  typeOfBuildTerm(s, Int(val)) = (Int(val), INT()).
+  
+  typeOfBuildTerm(s, Real(val)) = (Real(val), REAL()).
+  
+  typeOfBuildTerm(s, Str(val)) = (Str(val), STRING()).
   
   // BUILD TERMS WITHIN CONSTRUCTORS
   typeOfBuildConsTerm: scope * Term -> (Term * TYPE)

@@ -12,7 +12,10 @@ imports
     
   sorts TYPE
   context-free syntax
-    TYPE.SRT = Id
+    TYPE.SRT = Id {avoid}
+    TYPE.STRING = [string]
+    TYPE.INT = [int]
+    TYPE.REAL = [real]
     TYPE.DYN = [?]
 
   context-free priorities
