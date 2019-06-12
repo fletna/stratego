@@ -34,6 +34,25 @@ rules
 // inference of rules is a whole subject in itself. Any rules
 // without a typehint are considered dynamic to dynamic (? -> ?).
 
+// # Things that are always dynamic
+
+// This is a non-exhaustive list of language constructs which are
+// always dynamic and are for future work. These constructs can
+// always be typehinted if a specific type is known.
+
+// These language constructs either require a more powerful 
+// type system or are features which are only used in specific
+// cases.
+
+// Left choice `<+`, this operator requires more complex types
+// such as generic types and union types to be expressed.
+
+// Dynamic rules `{| }`. Hard to check statically.
+
+// let, is quite specific. 
+
+// rec, is quite specific. Might need a more complex type system.
+
 // # Gradual typing on basic rules
 
 // ## The normal case
@@ -129,9 +148,6 @@ eval : Var(s) -> <eval1> s
 // strategy :: (in-types) -> (out-types)
 strat :: Exp -> String
 strat = ?Var(x); !x
-
-// TODO: Is effort made to check if a strategy adheres to
-// it's definition? Is this viable?
 
 // ## Typehints in strategies
 
