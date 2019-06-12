@@ -1,0 +1,96 @@
+module example01
+
+signature
+  sorts Exp String Int
+  constructors
+    Var  : String -> Exp 
+    Int  : Int -> Exp
+    Plus : Exp * Exp -> Exp
+     
+rules
+
+// # Gradual typing on basic rules
+
+// ## The normal case
+
+// In this rule i and j are unbound, because they
+// can match on any tuple.
+eval : (i, j) -> Plus(i, j)
+
+// This will cause casts to be inserted inside the 
+// build term because after this the type of the variable
+// is expected to be Exp
+// eval : (i, j) -> Plus(i : ? -> Exp, j : ? -> Exp)
+
+// This is converted into normal Stratego and the 
+// casts are converted into a rule application.
+eval : (i, j) -> Plus(<cast-value(strategoGradual--is-a-Exp|"Exp")> i, <cast-value(strategoGradual--is-a-Exp|"Exp")> j)
+
+// There are two helper functions which help with casting
+// Cast value tries to apply a strategy to the input, 
+// if that fails an error is reported.
+cast-value(s|typ) = s <+ ?a; report-failure(|<concat-strings> ["Cast to ", typ, " failed"], a)
+// The strategoGradual--is-a... rules are generated to allow
+// for type checking during runtime in Stratego. 
+strategoGradual--is-a-Exp = ?Var(_)
+strategoGradual--is-a-Exp = ?Int(_)
+strategoGradual--is-a-Exp = ?Plus(_)
+
+// ## An error case
+
+// In this case s is expected to be a string, so it cannot
+// be applied to the Int constructor. This causes an error
+// to be reported.
+eval : Var(s) -> Int(s)
+
+// ## Bypassing the typechecker
+
+// It might be that the developer wants to do something
+// which does not adhere to the typing rules.
+// For this the developer can cast a variable to
+// dynamic (?) and use it as any value they want.
+eval : Var(s : ?) -> Int(s)
+
+// # Gradual typing on rule application
+
+// ## Typehinting the return value
+
+// When applying a rule which does not have a clear
+// definition, it's return value will be dynamic (?).
+// Using a typehint you can assert that this value is
+// of a specific type. 
+// When this value is used again the typechecker knows 
+// which types to expect.
+eval : a -> b
+  where
+    b : Exp := <stx-evaluate(|"static-semantics", "myStatixRule")> [a]
+    
+// ## Typehinting a rule signature
+
+// Inferring types from rules is very hard to make 
+// complete. Because having the same rule for different
+// types is possible you cannot ensure that the type
+// of a rule can be expressed within the typesystem
+// in stratego gradual.
+
+// A rule without a type hint is considered to be
+// rule :: ? -> ?
+
+// When defining a rule with a clear input/output 
+// the developer can choose to add a rule signature.
+eval1 :: (Exp) -> (Exp)
+
+// When the rule is applied this information is used to
+// for static analysis and casts are inserted if needed.
+eval : a -> <eval1> a
+
+// In this case `a` is unbound and it is expected to be
+// Exp by `eval1`, so a cast is inserted.
+eval : a -> <eval1> (<cast-value(strategoGradual--is-a-Exp|"Exp")> a)
+
+// When a typehinted rule is used with the wrong type an
+// Error is reported.
+
+// In this case `s` is of type String, `eval` expects a
+// value of type `Exp`, `String` and `Exp` are not consistent.
+eval : Var(s) -> <eval1> s
