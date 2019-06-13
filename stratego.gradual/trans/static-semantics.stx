@@ -166,26 +166,27 @@ rules // rules
   ruleOk(s, SDefNoArgs(f, rules)) = SDefNoArgs(f, rules).
   ruleOk(s, SDefTypeCheck(f, c, rules)) = SDefTypeCheck(f, c, rules).
   
-  ruleOk(s, RDefNoArgs(f, r)) = def  :- {s_r t1 t2 ts sg}
+  ruleOk(s, RDefNoArgs(f, r)) = RDefNoArgs(f, r)  :- {s_r t1 t2 ts sg def}
     typeOfRule of Rule{f@f} in s |-> sg,
     resolveRule(s, RDefNoArgs(f, r), sg) == def.    
  
   resolveRule: scope * Def * list((path * (occurrence * TYPE))) -> Def
   
-  resolveRule(s, RDefNoArgs(f, Rule(trm1, trm2, cond)), []) = RDefNoArgs(f, Rule(trm1, trm2', cond')) :- {s_r t1 t2}
-  	new s_r, s_r -P-> s,
+  
+  resolveRule(s, RDefNoArgs(f, Rule(trm1, trm2, cond)), []) = RDefNoArgs(f, Rule(trm1', trm2', cond')) :- {s_r t1 t2}
+  	new s_r, s_r -P-> s, 
   	typeOfMatchTerm(s_r, trm1) == t1,
-  	t1 == DYN(),
+  	cast(trm1, t1, DYN()) == trm1',
+  	//t1 == DYN(),
     typeOfBuildTerm(s_r, trm2) == (trm2', t2),
-    checkConds(s_r, cond) == cond',
-  	s -> Rule{f@f} with typeOfRule FUN([DYN()], DYN()).	
+    checkConds(s_r, cond) == cond'.
+    
+  	// s -> Rule{f@f} with typeOfRule FUN([DYN()], DYN()).	
   
   resolveRule(s, RDefNoArgs(f, Rule(trm1, trm2, cond)), [(_, (_, FUN([t], t')))]) = def :- {s_r t1 t2 trm2' cond'}
   	new s_r, s_r -P-> s,
-  	typeOfMatchTerm(s_r, trm1) == t1,
-  	t1 == t,
-    typeOfBuildTerm(s_r, trm2) == (trm2', t2),
-    t2 == t',
+  	typeOfMatchTerm(s_r, trm1) == t,
+    typeOfBuildTerm(s_r, trm2) == (trm2', t'),
     checkConds(s_r, cond) == cond',
   	def == RDefNoArgs(f, Rule(trm1, trm2', cond')).
   	  
@@ -250,10 +251,8 @@ rules // rules
     typeOfMatchTerm(s, term) == t.
   
   typeOfMatchTerm(s, Var(x)) = t :-
-   	// type will be bound in rule context
    	s -> Var{x@x} with typeOfVar t.
-   //t == DYN().
-  
+   	  
   typeOfMatchTerm(s, Op(c, trms)) = t :- {p d ts ts'}
     typeOfCons of Cons{c@c} in s |-> [(p, (d, FUN(ts, t)))],
     //typeOfMatchTerms(s, trms) == ts', consistentL(ts, ts').
