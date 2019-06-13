@@ -5,10 +5,12 @@ imports
   stratego/sugar/constants
   stratego/sugar/strategies
   stratego/sugar/rules
+  stratego/sugar/terms
 
   context-free syntax
-    Term.CastTerm = <<Term> : <TYPE> =\> <TYPE>>
+    Term.CastTerm = <<Term> : <TYPE> ~\> <TYPE>> {prefer}
     Term.OfType = <<Term> : <TYPE>>
+    Term = "{" Term "}" {bracket}
     
   sorts TYPE
   context-free syntax
@@ -21,5 +23,5 @@ imports
 
   context-free priorities
     RuleDef.RDefNoArgs > Term.OfType,
-    Term.CastTerm > Term.OfType,
-    Term.CastTerm > Strategy.AM
+    Term.CastTerm > Term.App,
+    Term.CastTerm > Term.OfType

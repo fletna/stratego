@@ -33,6 +33,7 @@ signature
    
     SVar         : string -> SVar
     
+    OfType       : Term * TYPE -> Term
     CastTerm     : Term * TYPE * TYPE -> Term
     NoAnnoList   : Term -> Term
     Var          : string -> Term
@@ -89,7 +90,7 @@ rules
   
   cast: Term * TYPE * TYPE -> Term
   cast(e, T, T) = e.
-  cast(e, T1, T2) = CastTerm(e, T1, T2) :- consistent(T1, T2).
+  cast(e, T1, T2) = OfType(e, T2) :- consistent(T1, T2).
     
 rules moduleOk : Module 
  
@@ -165,31 +166,29 @@ rules // rules
   ruleOk(s, SDefNoArgs(f, rules)) = SDefNoArgs(f, rules).
   ruleOk(s, SDefTypeCheck(f, c, rules)) = SDefTypeCheck(f, c, rules).
   
-  ruleOk(s, RDefNoArgs(f, Rule(trm1, trm2, cond))) = RDefNoArgs(f, Rule(trm1, trm2', cond'))  :- {s_r t1 t2 ts sg}
-    new s_r, s_r -P-> s,
-    typeOfMatchTerm(s_r, trm1) == t1,
+  ruleOk(s, RDefNoArgs(f, r)) = def  :- {s_r t1 t2 ts sg}
+    typeOfRule of Rule{f@f} in s |-> sg,
+    resolveRule(s, RDefNoArgs(f, r), sg) == def.    
+ 
+  resolveRule: scope * Def * list((path * (occurrence * TYPE))) -> Def
+  
+  resolveRule(s, RDefNoArgs(f, Rule(trm1, trm2, cond)), []) = RDefNoArgs(f, Rule(trm1, trm2', cond')) :- {s_r t1 t2}
+  	new s_r, s_r -P-> s,
+  	typeOfMatchTerm(s_r, trm1) == t1,
+  	t1 == DYN(),
     typeOfBuildTerm(s_r, trm2) == (trm2', t2),
     checkConds(s_r, cond) == cond',
-    typeOfRule of Rule{f@f} in s |-> sg.
-    resolveRule(s, f, sg, t1, t2).
-    //s -> Rule{f@f} with typeOfRule FUN([t1], t2).
-    
-  // if there is a rule declaration then use it
-  // if there is no rule decl. then set to dynamic
-  resolveRule: scope * string * list((path * (occurrence * TYPE))) * TYPE * TYPE
+  	s -> Rule{f@f} with typeOfRule FUN([DYN()], DYN()).	
   
-  resolveRule(s, f, [], _, _) :-
-  	s -> Rule{f@f} with typeOfRule FUN([DYN()], DYN()).
-  	
-  resolveRule(s, f, [(_, (_, FUN([t], t')))], t1, t2) :-
-  	consistent(t1, t),
-  	consistent(t2, t').
-  	
-  /*
-  resolveRule(s, f, [whatever], _, _) :-
-  	s -> Rule{f@f} with typeOfRule FUN([DYN()], DYN()).
-  */
-  
+  resolveRule(s, RDefNoArgs(f, Rule(trm1, trm2, cond)), [(_, (_, FUN([t], t')))]) = def :- {s_r t1 t2 trm2' cond'}
+  	new s_r, s_r -P-> s,
+  	typeOfMatchTerm(s_r, trm1) == t1,
+  	t1 == t,
+    typeOfBuildTerm(s_r, trm2) == (trm2', t2),
+    t2 == t',
+    checkConds(s_r, cond) == cond',
+  	def == RDefNoArgs(f, Rule(trm1, trm2', cond')).
+  	  
   checkCond: scope * RuleCond -> RuleCond
   checkConds maps checkCond(*, list(*)) = list(*)
   
@@ -251,8 +250,9 @@ rules // rules
     typeOfMatchTerm(s, term) == t.
   
   typeOfMatchTerm(s, Var(x)) = t :-
-   s -> Var{x@x} with typeOfVar t,
-   t == DYN().
+   	// type will be bound in rule context
+   	s -> Var{x@x} with typeOfVar t.
+   //t == DYN().
   
   typeOfMatchTerm(s, Op(c, trms)) = t :- {p d ts ts'}
     typeOfCons of Cons{c@c} in s |-> [(p, (d, FUN(ts, t)))],
@@ -282,19 +282,23 @@ rules // rules
   typeOfBuildTerm(s, Tuple(terms)) = (Tuple(terms'), TUP(ts)) :- 
   	typeOfBuildTerms(s, terms) == (terms', ts).
     
-  typeOfBuildTerm(s, App(CallNoArgs(SVar(str)), term)) = (trm, t') :- {p d ty term' t}
+  typeOfBuildTerm(s, App(CallNoArgs(SVar(str)), term)) = (App(CallNoArgs(SVar(str)), trm), t') :- {p d ty term' t}
   	// if type of rule is (DYN -> sth) then casting will be handled inside of rule
   	// if type of rule isnt (DYN -> sth) then casting is handled on application site
   	typeOfRule of Rule{str@str} in s |-> [(p, (d, FUN([t], t')))],
   	typeOfBuildTerm(s, term) == (term', ty),
-	handleRuleApp(s, t, term', ty) == trm.  	
+	handleRuleApp(s, t, term', ty) == trm.
   
   handleRuleApp : scope * TYPE * Term * TYPE -> Term
   handleRuleApp(s, DYN(), term, termType) = Var("x").
+  
+  handleRuleApp(s, t, CastTerm(term, ty1, ty2), termType) = CastTerm(term, ty, ty2) :-
+  	consistent(t, ty2).
+  
   handleRuleApp(s, t, term, termType) = term' :-
   	cast(term, termType, t) == term'.
   	
-  typeOfBuildTerm(s, App(Seq(str1, str2), term)) = (trm, t') :- {t term'}
+  typeOfBuildTerm(s, App(Seq(str1, str2), term)) = (App(Seq(str1, str2), trm), t') :- {t term'}
   	typeOfStrategy(s, Seq(str1, str2)) == FUN([t], t'),
   	typeOfBuildTerm(s, term) == (term', t),
   	handleRuleApp(s, t, term', t) == trm.
