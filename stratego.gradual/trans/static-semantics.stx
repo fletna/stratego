@@ -60,12 +60,14 @@ signature
     OpQ          : string * list(Term) -> Term
     Explode      : Term * Term -> Term
     As           : string * Term -> Term
-    Match        : Term -> Strategy
     Id           : Term
     Wld          : Term
+
     // Strategy
     Seq			 : Strategy * Strategy -> Strategy
     Assign       : Term * Term -> Strategy
+    Match        : Term -> Strategy
+    Build        : Term -> Strategy
 
     
   sorts TYPE
@@ -186,7 +188,11 @@ rules // rules
   ruleOk : scope * Def -> Def
   rulesOk maps ruleOk(*, list(*)) = list(*)
   
-  ruleOk(s, SDefNoArgs(f, rules)) = SDefNoArgs(f, rules). // TODO
+  ruleOk(s, SDefNoArgs(f, strategy)) = SDefNoArgs(f, strategy) :- {s_r t}
+    new s_r, s_r -P-> s,
+    typeOfStrategy(s_r, strategy) == t,
+    consistent(t, DYN()).
+  
   ruleOk(s, SDefTypeCheck(f, c, rules)) = SDefTypeCheck(f, c, rules).
   
   ruleOk(s, RDefNoArgs(f, Rule(trm1, trm2, cond))) = RDefNoArgs(f, Rule(trm1, trm2', cond'))  :- {s_r t1 t2}
@@ -196,11 +202,6 @@ rules // rules
     checkConds(s_r, cond) == cond',
     s -> Rule{f@f} with typeOfRule FUN([t1], t2).
 
-  insertCast : scope * RuleCond -> RuleCond
-  
-  insertCast(s, cond) = cond' :-
-    WithClause(BA(CallNoArgs(SVar("is-string")), Var("x"))) == cond'.
-  
   checkCond: scope * RuleCond -> RuleCond
   checkConds maps checkCond(*, list(*)) = list(*)
   
@@ -220,6 +221,12 @@ rules // rules
   typeOfStrategy(s, CallNoArgs(SVar(str))) = t :- {p d t'}
   	typeOfRule of Rule{str@str} in s |-> [(p, (d, t'))],
   	t == t'.
+  	
+  typeOfStrategy(s, Match(trm)) = FUN([t], DYN()) :-
+    typeOfMatchTerm(s, trm) == t.
+    
+  typeOfStrategy(s, Build(trm)) = FUN([DYN()], t) :- {trm'}
+    typeOfBuildTerm(s, trm) == (trm', t).
   
   checkStrategy: scope * Strategy -> Strategy
   checkStrategy(s, Seq(str1,str2)) = Seq(str1, str2) :- {t1 t2}

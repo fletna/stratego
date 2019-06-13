@@ -26,3 +26,11 @@ test incompatible types [[
 test incompatible types cast [[
   my-blah: Blah(a, b : ?) -> Eh(b)
 ]] analysis succeeds
+
+test incompatible types strat [[
+  my-blah = ?Blah(a,b); !Eh(b)
+]] analysis fails
+
+test incompatible types cast strat [[
+  my-blah = ?Blah(a, b : ?); !Eh(b)
+]] analysis succeeds
