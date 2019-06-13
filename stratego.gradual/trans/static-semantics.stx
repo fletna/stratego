@@ -283,6 +283,10 @@ rules // MATCH TERM
   typeOfMatchTerm(s, Tuple(trms)) = TUP(ts) :- 
   	typeOfMatchTerms(s, trms) == ts.
   	
+  typeOfMatchTerm(s, Int(val)) = INT().
+  typeOfMatchTerm(s, Str(val)) = STRING().
+  typeOfMatchTerm(s, Real(val)) = REAL().
+  	
 rules  // BUILD TERMS	
   typeOfBuildTerm : scope * Term -> (Term * TYPE)
   typeOfBuildTerms: scope * list(Term) -> (list(Term) * list(TYPE))
@@ -322,9 +326,7 @@ rules  // BUILD TERMS
   typeOfBuildTerm(s, CastTerm(e, t1, t2)) = (CastTerm(e, t1, t2), t). // Silence CastTerm
   
   typeOfBuildTerm(s, Int(val)) = (Int(val), INT()).
-  
   typeOfBuildTerm(s, Real(val)) = (Real(val), REAL()).
-  
   typeOfBuildTerm(s, Str(val)) = (Str(val), STRING()).
   
   // BUILD TERMS WITHIN CONSTRUCTORS

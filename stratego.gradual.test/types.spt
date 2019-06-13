@@ -19,17 +19,25 @@ fixture [[
 		[[...]] 
 ]]
 
-test incompatible types [[
+test incompatible types rule [[
   my-blah: Blah(a,b) -> Eh(b)
 ]] analysis fails
 
-test incompatible types cast [[
+test compatible types rule [[
+  rule: Blah(a, b) -> Var(a)
+]] analysis succeeds
+
+test incompatible types cast rule [[
   my-blah: Blah(a, b : ?) -> Eh(b)
 ]] analysis succeeds
 
 test incompatible types strat [[
   my-blah = ?Blah(a,b); !Eh(b)
 ]] analysis fails
+
+test compatible types strat [[
+  my-blah = ?Blah(a, b); !Var(a)
+]] analysis succeeds
 
 test incompatible types cast strat [[
   my-blah = ?Blah(a, b : ?); !Eh(b)
