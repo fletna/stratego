@@ -173,10 +173,10 @@ rules // rules
   resolveRule: scope * Def * list((path * (occurrence * TYPE))) -> Def
   
   
-  resolveRule(s, RDefNoArgs(f, Rule(trm1, trm2, cond)), []) = RDefNoArgs(f, Rule(trm1', trm2', cond')) :- {s_r t1 t2}
+  resolveRule(s, RDefNoArgs(f, Rule(trm1, trm2, cond)), []) = RDefNoArgs(f, Rule(trm1, trm2', cond')) :- {s_r t1 t2}
   	new s_r, s_r -P-> s, 
   	typeOfMatchTerm(s_r, trm1) == t1,
-  	cast(trm1, t1, DYN()) == trm1',
+  	//cast(trm1, t1, DYN()) == trm1',
   	//t1 == DYN(),
     typeOfBuildTerm(s_r, trm2) == (trm2', t2),
     checkConds(s_r, cond) == cond'.
