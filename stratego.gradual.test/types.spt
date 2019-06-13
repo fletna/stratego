@@ -1,0 +1,44 @@
+module types
+
+language StrategoGradual
+
+fixture [[
+	module testing
+	
+	signature
+	  sorts Exp String Int Bla
+	  constructors
+	    Blah : String * Int -> Exp
+	    Var  : String -> Exp
+	    Bb   : Int -> Bla
+	    Eh   : Bla -> Exp
+	    Meh  : Exp -> Exp
+	    Multi: Int * String * Bla * Exp -> Exp
+	
+	rules
+		[[...]] 
+]]
+
+test incompatible types rule [[
+  my-blah: Blah(a,b) -> Eh(b)
+]] analysis fails
+
+test compatible types rule [[
+  rule: Blah(a, b) -> Var(a)
+]] analysis succeeds
+
+test incompatible types cast rule [[
+  my-blah: Blah(a, b : ?) -> Eh(b)
+]] analysis succeeds
+
+test incompatible types strat [[
+  my-blah = ?Blah(a,b); !Eh(b)
+]] analysis fails
+
+test compatible types strat [[
+  my-blah = ?Blah(a, b); !Var(a)
+]] analysis succeeds
+
+test incompatible types cast strat [[
+  my-blah = ?Blah(a, b : ?); !Eh(b)
+]] analysis succeeds

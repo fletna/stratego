@@ -50,8 +50,8 @@ test where_simple_variable_resolution [[
 	
 	my-blah: (a,b) -> Multi(a, b, c, d)
 	where
-		c = Bb(a);
-		d = Blah(b,a)
+		c := Bb(a);
+		d := Blah(b,a)
 
 ]] analysis succeeds
 

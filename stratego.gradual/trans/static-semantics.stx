@@ -2,7 +2,7 @@ module static-semantics
 
 signature
   sorts Section SigSection Module OpDecl Sort Rule Term Type Def RuleCond
-        ConstType Strategy SVar
+        ConstType Strategy SVar Typedid
   constructors
     Module       : string * list(Section) -> Module
     Signature    : list(SigSection) -> Section
@@ -20,8 +20,16 @@ signature
     RDefNoArgs   : string * Rule -> Def
     SDefNoArgs   : string * Strategy -> Def
     SDefTypeCheck: string * string * list(Type) -> Def
+
     RDecl	     : string * TYPE * TYPE -> Def
     RDeclT		 : string * list(TYPE) * list(TYPE) * TYPE -> Def
+    ExtSDefInl   : string * list(Typedid) * list(Typedid) * Strategy -> Def
+    AnnoDef      : list(string) * Def -> Def
+    RDef         : string * list(Typedid) * Rule -> Def
+    RDefT        : string * list(Typedid) * list(Typedid) * Rule -> Def
+    SDefT        : string * list(Typedid) * list(Typedid) * Strategy -> Def
+    
+    VarDec       : string * Type -> Typedid
     Rule         : Term * Term * list(RuleCond) -> Rule
     
     WhereClause  : Strategy -> RuleCond
@@ -33,22 +41,44 @@ signature
    
     SVar         : string -> SVar
     
-    OfType       : Term * TYPE -> Term
+    // Term
     CastTerm     : Term * TYPE * TYPE -> Term
+    OfType       : Term * TYPE -> Term
+    BuildDefault : Term -> Term
+  	AnnoList     : Term * Term -> Term
     NoAnnoList   : Term -> Term
+    App			 : Strategy * Term -> Term
+    RootApp      : Strategy -> Term
+    
+    Char         : string -> Term
     Var          : string -> Term
     Tuple		 : list(Term) -> Term
+    List         : list(Term) -> Term
+    ListTail     : list(Term) * Term -> Term
+    BuildDefaultPT : Term -> Term
+    Int          : string -> Term
+    Real         : string -> Term
+    Str          : string -> Term
     Op           : string * list(Term) -> Term
-    App			 : Strategy * Term -> Term
+    OpQ          : string * list(Term) -> Term
+    Explode      : Term * Term -> Term
+    As           : string * Term -> Term
+    Id           : Term
+    Wld          : Term
+
+    // Strategy
     Seq			 : Strategy * Strategy -> Strategy
     Assign       : Term * Term -> Strategy
     Match        : Term -> Strategy
-    Id           : Term
-    Wld          : Term
+    Build        : Term -> Strategy
+
     
   sorts TYPE
   constructors
     SRT : string -> TYPE
+    STRING : TYPE
+    INT : TYPE
+    REAL : TYPE
     FUN : list(TYPE) * TYPE -> TYPE
     TUP : list(TYPE) -> TYPE
     DYN : TYPE
@@ -124,6 +154,7 @@ rules // signatures
   sigSectionOk(s, Sorts(srts)) = Sorts(srts) :- 
     sortsOk(s, srts).
   
+rules // sorts
   sortOk : scope * Sort 
   sortsOk maps sortOk(*, list(*)) 
   
@@ -163,7 +194,11 @@ rules // rules
   ruleOk(s, RDecl(f, t1, t2)) = RDecl(f, t1, t2) :-
   	s -> Rule{f@f} with typeOfRule FUN([t1], t2). 
    
-  ruleOk(s, SDefNoArgs(f, rules)) = SDefNoArgs(f, rules).
+  ruleOk(s, SDefNoArgs(f, strategy)) = SDefNoArgs(f, strategy) :- {s_r t}
+    new s_r, s_r -P-> s,
+    typeOfStrategy(s_r, strategy) == t,
+    consistent(t, DYN()).
+  
   ruleOk(s, SDefTypeCheck(f, c, rules)) = SDefTypeCheck(f, c, rules).
   
   ruleOk(s, RDefNoArgs(f, r)) = RDefNoArgs(f, r)  :- {s_r t1 t2 ts sg def}
@@ -180,7 +215,7 @@ rules // rules
   	//t1 == DYN(),
     typeOfBuildTerm(s_r, trm2) == (trm2', t2),
     checkConds(s_r, cond) == cond'.
-    
+  
   	// s -> Rule{f@f} with typeOfRule FUN([DYN()], DYN()).	
   
   resolveRule(s, RDefNoArgs(f, Rule(trm1, trm2, cond)), [(_, (_, FUN([t], t')))]) = def :- {s_r t1 t2 trm2' cond'}
@@ -192,10 +227,6 @@ rules // rules
   	  
   checkCond: scope * RuleCond -> RuleCond
   checkConds maps checkCond(*, list(*)) = list(*)
-  
-  insertCast : scope * RuleCond -> RuleCond
-  insertCast(s, cond) = cond' :-
-    WithClause(BA(CallNoArgs(SVar("is-string")), Var("x"))) == cond'.
   
   checkCond(s, WhereClause(str)) = WhereClause(str') :-
   	checkStrategy(s, str) == str'.
@@ -214,7 +245,7 @@ rules // rules
   	typeOfBuildTerm(s, sth) == (trm, t),
   	s -> Var{x@x} with typeOfVar t.
   	//typeOfVar of Var{x@x} in s |-> [(p, (d, t))],
-  
+      
   typeOfStrategy: scope * Strategy -> TYPE
   
   typeOfStrategy(s, Seq(str1, str2)) = FUN([t11], t22) :- {t12 t21}
@@ -228,6 +259,13 @@ rules // rules
   
   typeOfTerm: scope * Term -> TYPE
   
+  typeOfStrategy(s, Match(trm)) = FUN([t], DYN()) :-
+    typeOfMatchTerm(s, trm) == t.
+    
+  typeOfStrategy(s, Build(trm)) = FUN([DYN()], t) :- {trm'}
+    typeOfBuildTerm(s, trm) == (trm', t).
+
+rules // MATCH TERM    
   typeOfMatchTerm : scope * Term -> TYPE
   typeOfMatchTerms maps typeOfMatchTerm(*, list(*)) = list(*)
   
@@ -243,16 +281,27 @@ rules // rules
   assertTypeOfMatchTerm(s, Op(c, trms)) = t :- {p d ts ts'}
   	typeOfCons of Cons{c@c} in s |-> [(p, (d, FUN(ts, t)))],
   	assertTypeOfMatchTerms(s, trms) == ts.
+  	
+  assertTypeOfMatchTerm(s, OfType(Var(x), t)) = t' :-
+    s -> Var{x@x} with typeOfVar t,
+    consistent(t, t').
   
   typeOfMatchTerm(s, NoAnnoList(Var(x))) = DYN() :-
-    s -> Var{x@x} with typeOfVar DYN().  
+    s -> Var{x@x} with typeOfVar DYN().
   
   typeOfMatchTerm(s, NoAnnoList(term)) = t :-
     typeOfMatchTerm(s, term) == t.
   
   typeOfMatchTerm(s, Var(x)) = t :-
-   	s -> Var{x@x} with typeOfVar t.
-   	  
+   s -> Var{x@x} with typeOfVar t.
+   //t == DYN().
+   
+  typeOfMatchTerm(s, OfType(Var(x), t)) = t :- {s_t t'}
+    new s_t, s_t -P-> s,
+    s -> Var{x@x} with typeOfVar t,
+    typeOfMatchTerm(s_t, Var(x)) == t',
+    consistent(t, t').
+  
   typeOfMatchTerm(s, Op(c, trms)) = t :- {p d ts ts'}
     typeOfCons of Cons{c@c} in s |-> [(p, (d, FUN(ts, t)))],
     //typeOfMatchTerms(s, trms) == ts', consistentL(ts, ts').
@@ -261,7 +310,11 @@ rules // rules
   typeOfMatchTerm(s, Tuple(trms)) = TUP(ts) :- 
   	typeOfMatchTerms(s, trms) == ts.
   	
-  // BUILD TERMS	
+  typeOfMatchTerm(s, Int(val)) = INT().
+  typeOfMatchTerm(s, Str(val)) = STRING().
+  typeOfMatchTerm(s, Real(val)) = REAL().
+  	
+rules  // BUILD TERMS	
   typeOfBuildTerm : scope * Term -> (Term * TYPE)
   typeOfBuildTerms: scope * list(Term) -> (list(Term) * list(TYPE))
   
@@ -305,8 +358,16 @@ rules // rules
   typeOfBuildTerm(s, Op(c, trms)) = (Op(c, trms'), t) :- {p d ts}
     typeOfCons of Cons{c@c} in s |-> [(p, (d, FUN(ts, t)))],
     typeOfBuildConsTerms(s, trms) == (trms', ts).
+  
+  typeOfBuildTerm(s, OpQ(c, trms)) = (OpQ(c, trms'), t) :- {p d ts}
+    typeOfCons of Cons{c@c} in s |-> [(p, (d, FUN(ts, t)))],
+    typeOfBuildConsTerms(s, trms) == (trms', ts).
     
   typeOfBuildTerm(s, CastTerm(e, t1, t2)) = (CastTerm(e, t1, t2), t). // Silence CastTerm
+  
+  typeOfBuildTerm(s, Int(val)) = (Int(val), INT()).
+  typeOfBuildTerm(s, Real(val)) = (Real(val), REAL()).
+  typeOfBuildTerm(s, Str(val)) = (Str(val), STRING()).
   
   // BUILD TERMS WITHIN CONSTRUCTORS
   typeOfBuildConsTerm: scope * Term -> (Term * TYPE)
