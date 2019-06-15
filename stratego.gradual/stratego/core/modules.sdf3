@@ -11,28 +11,34 @@ imports
     
     Module.Module = <
       module <ModName> 
-       <Decl*>
+        <{Decl "\n"}*>
+
     >
     
     Module.Specification = <
       specification 
         <Decl*>
+
     >
 
   sorts Decl 
   context-free syntax
-    Decl.Imports = 
-      <imports 
-         <ImportModName*>>
+    Decl.Imports = <
+      imports 
+         <ImportModName*>
+
+    >
     
     Decl.Strategies = <
       strategies 
-        <Def*>
+        <{Def "\n"}*>
+
     >
         
     Decl.Signature = <
       signature 
-        <Sdecl*>
+        <{Sdecl "\n"}*>
+
     >
 
   sorts ImportModName
