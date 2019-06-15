@@ -201,7 +201,7 @@ rules // rules
   
   ruleOk(s, SDefTypeCheck(f, c, rules)) = SDefTypeCheck(f, c, rules).
   
-  ruleOk(s, RDefNoArgs(f, r)) = RDefNoArgs(f, r)  :- {s_r t1 t2 ts sg def}
+  ruleOk(s, RDefNoArgs(f, r)) = def :- {s_r t1 t2 ts sg}
     typeOfRule of Rule{f@f} in s |-> sg,
     resolveRule(s, RDefNoArgs(f, r), sg) == def.    
  
