@@ -6,36 +6,33 @@ imports
 
   sorts Sdecl
   context-free syntax
-  
     Sdecl.Sorts = <
       sorts <Sort*>
-      
+
     >
 
     Sdecl.Constructors = <
       constructors 
-        <Opdecl*>
+        <{Opdecl "\n"}*>
+
     >
 
   sorts Sort
   context-free syntax
     Sort.SortVar    = <<LCID>>
     Sort.SortNoArgs = <<UCID>>
-    Sort.Sort       = <<Id>(<{Sort ","}*>)>
+    Sort.Sort       = <<Id>(<{Sort ", "}*>)>
 
   sorts Opdecl
   context-free syntax
     Opdecl.OpDecl    = <
       <Id> : <Type>
-
     >
     Opdecl.OpDeclQ   = <
       <String> : <Type>
-
     >
     Opdecl.OpDeclInj = <
       : <Type>
-
     >
     
     Opdecl.ExtOpDecl    = <external <Id> : <Type>>
@@ -46,7 +43,7 @@ imports
   context-free syntax
     ConstType.ConstType = <<Sort>>
     
-    FunType.FunType = [[{ArgType "*"}+] -> [RetType]]
+    FunType.FunType = [[{ArgType " * "}+] -> [RetType]]
     
     ArgType = <(<Type>)> {bracket}
     ArgType = <<ConstType>>

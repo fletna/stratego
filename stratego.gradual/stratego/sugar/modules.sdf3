@@ -11,10 +11,10 @@ imports
   context-free syntax
     Decl.Rules = 
       <rules 
-         <Def*>>
+         <{Def "\n"}*>>
     
     Decl.Overlays =     
       <overlays 
-         <Overlay*>>
+         <{Overlay "\n"}*>>
     
     Def = <<RuleDef>>

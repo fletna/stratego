@@ -27,20 +27,22 @@ imports
   sorts StrategyDef
   context-free syntax
     StrategyDef.SDefT = <
-      <Id>(<{Typedid ", "}*> | <{Typedid ", "}*>) = 
-         <Strategy>
+      <Id>(<{Typedid ", "}*> | <{Typedid ", "}*>) = <Strategy>
+
     >
   
     Def.AnnoDef = 
       <<Anno+> <StrategyDef>>
   
     StrategyDef.ExtSDefInl = <
-      external <Id>(<{Typedid ", "}*> | <{Typedid ", "}*>) = 
-         <Strategy>
+      external <Id>(<{Typedid ", "}*> | <{Typedid ", "}*>) = <Strategy>
+
     >
   
-    StrategyDef.ExtSDef = 
-      <external <Id>(<{Typedid ", "}*> | <{Typedid ", "}*>)>
+    StrategyDef.ExtSDef = <
+      external <Id>(<{Typedid ", "}*> | <{Typedid ", "}*>)
+
+    >
   
 //    StrategyDef.ExtSDef = 
 //      <external <EmptyId>(<{Typedid ", "}*> | <{Typedid ", "}*>)> 
