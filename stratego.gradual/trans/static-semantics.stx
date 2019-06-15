@@ -207,17 +207,26 @@ rules // rules
  
   resolveRule: scope * Def * list((path * (occurrence * TYPE))) -> Def
   
-  
   resolveRule(s, RDefNoArgs(f, Rule(trm1, trm2, cond)), []) = RDefNoArgs(f, Rule(trm1, trm2', cond')) :- {s_r t1 t2}
   	new s_r, s_r -P-> s, 
   	typeOfMatchTerm(s_r, trm1) == t1,
   	//cast(trm1, t1, DYN()) == trm1',
-  	//t1 == DYN(),
+  	resolveRuleMatchTerm(trm1, t1),
     typeOfBuildTerm(s_r, trm2) == (trm2', t2),
     checkConds(s_r, cond) == cond'.
+    
+  resolveRuleMatchTerm: Term * TYPE
   
-  	// s -> Rule{f@f} with typeOfRule FUN([DYN()], DYN()).	
+  resolveRuleMatchTerm(Var(x), t) :- t == DYN().
   
+  resolveRuleMatchTerm(Tuple([trm|trms]), TUP([ty|tys])) :- 
+  	resolveRuleMatchTerm(trm, ty),
+  	resolveRuleMatchTerm(Tuple(trms), TUP(tys)).
+  
+  resolveRuleMatchTerm(Tuple([x]), TUP([t])) :- resolveRuleMatchTerm(x, t).
+   
+  resolveRuleMatchTerm(_ , t) :- t == DYN(). // there will be constraints already for other cases
+    
   resolveRule(s, RDefNoArgs(f, Rule(trm1, trm2, cond)), [(_, (_, FUN([t], t')))]) = def :- {s_r t1 t2 trm2' cond'}
   	new s_r, s_r -P-> s,
   	typeOfMatchTerm(s_r, trm1) == t,
@@ -236,15 +245,20 @@ rules // rules
   
   checkStrategy: scope * Strategy -> Strategy
   	
-  checkStrategy(s, Seq(str1,str2)) = Seq(str1, str2) :- {t1 t2 t3}
-  	checkStrategy(s, str1) == t1,
-  	checkStrategy(s, str2) == t2,
+  checkStrategy(s, Seq(str1,str2)) = Seq(str1', str2') :- {t3}
+  	checkStrategy(s, str1) == str1',
+  	checkStrategy(s, str2) == str2',
   	typeOfStrategy(s, Seq(str1, str2)) == t3.
   	  
   checkStrategy(s, Assign(Var(x), sth)) = Assign(Var(x), trm) :- {t}
   	typeOfBuildTerm(s, sth) == (trm, t),
   	s -> Var{x@x} with typeOfVar t.
   	//typeOfVar of Var{x@x} in s |-> [(p, (d, t))],
+  	
+  checkStrategy(s, Assign(OfType(Var(x), ty), sth)) = Assign(Var(x), trm') :- {t trm}
+  	typeOfBuildTerm(s, sth) == (trm, t),
+  	s -> Var{x@x} with typeOfVar ty,
+  	cast(trm, t, ty) == trm'.
       
   typeOfStrategy: scope * Strategy -> TYPE
   
@@ -296,11 +310,13 @@ rules // MATCH TERM
    s -> Var{x@x} with typeOfVar t.
    //t == DYN().
    
+  /*
   typeOfMatchTerm(s, OfType(Var(x), t)) = t :- {s_t t'}
-    new s_t, s_t -P-> s,
+    //new s_t, s_t -P-> s,
     s -> Var{x@x} with typeOfVar t,
     typeOfMatchTerm(s_t, Var(x)) == t',
     consistent(t, t').
+  */
   
   typeOfMatchTerm(s, Op(c, trms)) = t :- {p d ts ts'}
     typeOfCons of Cons{c@c} in s |-> [(p, (d, FUN(ts, t)))],

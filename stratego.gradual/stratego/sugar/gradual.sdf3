@@ -27,5 +27,7 @@ imports
   context-free priorities
     RuleDef.RDefNoArgs > Term.OfType,
     Term.CastTerm > Term.App,
-    Term.CastTerm > Term.OfType
+    Term.CastTerm > Term.OfType,
+    RuleDef.RDecl > RuleDef.RDefNoArgs,
+    RuleDef.RDecl > Term.OfType
     
