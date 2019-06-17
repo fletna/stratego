@@ -1,0 +1,37 @@
+module test02
+
+language StrategoGradual
+
+test test02 [[
+module test02
+// imports collection/list/cons
+signature
+  sorts List(a)
+  constructors
+  
+    /**
+     * Empty list.
+     */
+    Nil  : List(a)
+    
+    /** 
+     * Element of a list.
+     */
+    Cons : a * List(a) -> List(a)
+    
+    /**
+     * Concatenation of two lists.
+     */
+    Conc : List(a) * List(a) -> List(a)
+signature
+  sorts Call
+  constructors 
+    Call : a * List(a) -> Call
+    
+strategies
+
+  main = 
+    ?[prog | args];
+    !Call(prog, args)
+]] analysis succeeds
+// TODO prog and args do not resolve because main has no type.

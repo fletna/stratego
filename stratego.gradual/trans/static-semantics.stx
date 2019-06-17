@@ -17,6 +17,8 @@ signature
     ConstType    : Sort -> Type
     
     SortNoArgs   : string -> Sort
+    Sort         : string * list(Sort) -> Sort
+    SortVar      : string -> Sort
     RDefNoArgs   : string * Rule -> Def
     SDefNoArgs   : string * Strategy -> Def
     SDefTypeCheck: string * string * list(Type) -> Def
@@ -63,7 +65,6 @@ signature
     OpQ          : string * list(Term) -> Term
     Explode      : Term * Term -> Term
     As           : string * Term -> Term
-    Id           : Term
     Wld          : Term
 
     // Strategy
@@ -71,16 +72,19 @@ signature
     Assign       : Term * Term -> Strategy
     Match        : Term -> Strategy
     Build        : Term -> Strategy
+    Id           : Strategy
 
     
   sorts TYPE
   constructors
-    SRT : string -> TYPE
+    SRT : string * list(TYPE) -> TYPE
+    SRT_VAR : string -> TYPE
     STRING : TYPE
     INT : TYPE
     REAL : TYPE
     FUN : list(TYPE) * TYPE -> TYPE
     TUP : list(TYPE) -> TYPE
+    LIST : TYPE -> TYPE
     DYN : TYPE
     CAST: TYPE * TYPE -> TYPE
   
@@ -160,7 +164,13 @@ rules // sorts
   
   sortOk(s, SortNoArgs(srt)) :- {d}
     d == Sort{srt@srt},
-    s -> d with typeOfSort SRT(srt).
+    s -> d with typeOfSort SRT(srt, []).
+  
+  sortOk(s, Sort(srt, vars)) :- {d var_t}
+    d == Sort{srt@srt},
+    s -> d with typeOfSort SRT(srt, var_t),
+    typeOfSorts(s, vars) == var_t.
+  sortOk(s, SortVar(x)).
   
   sigSectionOk(s, Constructors(cdecls)) = Constructors(cdecls) :- 
     consDeclsOk(s, cdecls).
@@ -169,24 +179,36 @@ rules // sorts
   consDeclsOk maps consDeclOk(*, list(*))
   
   consDeclOk(s, OpDecl(c, FunType(srts, srt))) :- {ts t}
-    typeOfSorts(s, srts) == ts,
-    typeOfSort(s, srt) == t,
+    typeOfTypes(s, srts) == ts,
+    typeOfType(s, srt) == t,
     s -> Cons{c@c} with typeOfCons FUN(ts, t).
     
   consDeclOk(s, OpDecl(c, ConstType(srt))) :- {t}
-  	typeOfSort(s, ConstType(srt)) == t,
+  	typeOfSort(s, srt) == t,
   	s -> Cons{c@c} with typeOfCons FUN([], t).
   
-  typeOfSort : scope * Type -> TYPE
+  typeOfType : scope * Type -> TYPE
+  typeOfTypes maps typeOfType(*, list(*)) = list(*)
+  
+  typeOfType(s, ConstType(srt)) = typeOfSort(s, srt).
+  
+  typeOfSort : scope * Sort -> TYPE
   typeOfSorts maps typeOfSort(*, list(*)) = list(*)
   
-  typeOfSort(s, ConstType(SortNoArgs(srt))) = t :- {p d}
+  typeOfSort(s, SortNoArgs(srt)) = t :- {p d}
     typeOfSort of Sort{srt@srt} in s |-> [(p, (d, t))].
+    
+  typeOfSort(s, Sort(srt, args)) = t :- {p d}
+    typeOfSort of Sort{srt@srt} in s |-> [(p, (d, t))].
+    
+  typeOfSort(s, SortVar(name)) = SRT_VAR(name).
   
 rules // rules 
 
   sectionOk(s, Rules(rs)) = Rules(rs') :- 
     rulesOk(s, rs) == rs'.
+  sectionOk(s, Strategies(strs)) = Strategies(strs') :-
+    rulesOk(s, strs) == strs'.
   
   ruleOk : scope * Def -> Def
   rulesOk maps ruleOk(*, list(*)) = list(*)
@@ -278,6 +300,8 @@ rules // rules
     
   typeOfStrategy(s, Build(trm)) = FUN([DYN()], t) :- {trm'}
     typeOfBuildTerm(s, trm) == (trm', t).
+    
+  typeOfStrategy(s, Id()) = FUN([DYN()], DYN()).
 
 rules // MATCH TERM    
   typeOfMatchTerm : scope * Term -> TYPE
@@ -329,6 +353,12 @@ rules // MATCH TERM
   typeOfMatchTerm(s, Int(val)) = INT().
   typeOfMatchTerm(s, Str(val)) = STRING().
   typeOfMatchTerm(s, Real(val)) = REAL().
+  
+  typeOfMatchTerm(s, ListTail(heads, tail)) = LIST(t) :- {ts}
+    typeOfMatchTerms(s, heads) == ts,
+    typeOfMatchTerm(s, tail) == t,
+    allEqual(s, ts).
+    
   	
 rules  // BUILD TERMS	
   typeOfBuildTerm : scope * Term -> (Term * TYPE)
@@ -424,3 +454,13 @@ rules // insertTypeChecks
   insertTypeCheckCons maps insertTypeCheckCon(list(*)) = list(*)
   
   insertTypeCheckCon(OpDecl(c, FunType(srts, ConstType(SortNoArgs(typ))))) = SDefTypeCheck(typ, c, srts).
+  
+  
+rules // util
+
+  allEqual : scope * list(TYPE)
+  
+  allEqual(s, [el]).
+  
+  allEqual(s, [hd1|[hd2|tail]]) :-
+    hd1 == hd2.

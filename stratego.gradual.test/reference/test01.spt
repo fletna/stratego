@@ -1,0 +1,10 @@
+module test01
+
+language StrategoGradual
+
+test test01 [[
+module test01 
+strategies
+
+  main = id
+]] analysis succeeds
