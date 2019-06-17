@@ -12,6 +12,7 @@ signature
     Sorts        : list(Sort) -> SigSection
     Constructors : list(OpDecl) -> SigSection
     OpDecl       : string * Type -> OpDecl
+    OpDeclInj    : Type -> OpDecl
     
     FunType      : list(Type) * Type -> Type
     ConstType    : Sort -> Type
@@ -30,8 +31,10 @@ signature
     RDef         : string * list(Typedid) * Rule -> Def
     RDefT        : string * list(Typedid) * list(Typedid) * Rule -> Def
     SDefT        : string * list(Typedid) * list(Typedid) * Strategy -> Def
+    SDef         : string * list(Typedid) * Strategy -> Def
     
     VarDec       : string * Type -> Typedid
+    DefaultVarDec: string -> Typedid
     Rule         : Term * Term * list(RuleCond) -> Rule
     
     WhereClause  : Strategy -> RuleCond
@@ -73,6 +76,7 @@ signature
     Match        : Term -> Strategy
     Build        : Term -> Strategy
     Id           : Strategy
+    LChoice      : Strategy * Strategy -> Strategy
 
     
   sorts TYPE
@@ -226,7 +230,18 @@ rules // rules
   
   ruleOk(s, RDefNoArgs(f, r)) = def :- {s_r t1 t2 ts sg}
     typeOfRule of Rule{f@f} in s |-> sg,
-    resolveRule(s, RDefNoArgs(f, r), sg) == def.    
+    resolveRule(s, RDefNoArgs(f, r), sg) == def.  
+    
+  ruleOk(s, SDef(f, args, strategy)) = SDef(f, args, strategy) :- {s_r t t'}
+    new s_r, s_r -P-> s,
+    typeOfTypedids(s_r, args) == t',
+    typeOfStrategy(s_r, strategy) == t.
+    
+  typeOfTypedid : scope * Typedid -> TYPE
+  typeOfTypedids maps typeOfTypedid(*, list(*)) = list(*)
+  
+  typeOfTypedid(s, DefaultVarDec(name)) = DYN() :-
+    s -> Var{name@name} with typeOfVar DYN(). 
  
   resolveRule: scope * Def * list((path * (occurrence * TYPE))) -> Def
   
@@ -325,6 +340,8 @@ rules // rules
     typeOfBuildTerm(s, trm) == (trm', t).
     
   typeOfStrategy(s, Id()) = FUN([DYN()], DYN()).
+  
+  typeOfStrategy(s, LChoice(str1, str2)) = FUN([DYN()], DYN()).
 
 rules // MATCH TERM    
   typeOfMatchTerm : scope * Term -> TYPE
