@@ -77,7 +77,7 @@ signature
     
   sorts TYPE
   constructors
-    SRT : string * list(TYPE) -> TYPE
+    SRT : string -> TYPE
     SRT_VAR : string -> TYPE
     STRING : TYPE
     INT : TYPE
@@ -164,13 +164,15 @@ rules // sorts
   
   sortOk(s, SortNoArgs(srt)) :- {d}
     d == Sort{srt@srt},
-    s -> d with typeOfSort SRT(srt, []).
+    s -> d with typeOfSort SRT(srt).
   
+  /*
   sortOk(s, Sort(srt, vars)) :- {d var_t}
     d == Sort{srt@srt},
-    s -> d with typeOfSort SRT(srt, var_t),
+    s -> d with typeOfSort SRT(srt),
     typeOfSorts(s, vars) == var_t.
   sortOk(s, SortVar(x)).
+  */
   
   sigSectionOk(s, Constructors(cdecls)) = Constructors(cdecls) :- 
     consDeclsOk(s, cdecls).
@@ -232,7 +234,6 @@ rules // rules
   resolveRule(s, RDefNoArgs(f, Rule(trm1, trm2, cond)), []) = RDefNoArgs(f, Rule(trm1, trm2', cond')) :- {s_r t1 t2}
   	new s_r, s_r -P-> s, 
   	typeOfMatchTerm(s_r, trm1) == t1,
-  	//cast(trm1, t1, DYN()) == trm1',
   	resolveRuleMatchTerm(trm1, t1),
     typeOfBuildTerm(s_r, trm2) == (trm2', t2),
     checkConds(s_r, cond) == cond'.
@@ -253,8 +254,19 @@ rules // rules
   	new s_r, s_r -P-> s,
   	typeOfMatchTerm(s_r, trm1) == t,
     typeOfBuildTerm(s_r, trm2) == (trm2', t'),
+    resolveRuleBuildTerm(s_r, trm2', t'), // will set variable in scope graph if necessary
     checkConds(s_r, cond) == cond',
   	def == RDefNoArgs(f, Rule(trm1, trm2', cond')).
+  	
+  resolveRuleBuildTerm : scope * Term * TYPE
+  resolveRuleBuildTerm(s, NoAnnoList(trm), t) :-
+  	resolveRuleBuildTerm(s, trm, t).
+  	
+  resolveRuleBuildTerm(s, Var(x), t) :-
+  	s -> Var{x@x} with typeOfVar t.
+  	
+  resolveRuleBuildTerm(s, term, t).
+  	
   	  
   checkCond: scope * RuleCond -> RuleCond
   checkConds maps checkCond(*, list(*)) = list(*)
@@ -272,15 +284,27 @@ rules // rules
   	checkStrategy(s, str2) == str2',
   	typeOfStrategy(s, Seq(str1, str2)) == t3.
   	  
-  checkStrategy(s, Assign(Var(x), sth)) = Assign(Var(x), trm) :- {t}
+  checkStrategy(s, Assign(Var(x), sth)) = Assign(Var(x), term') :- {trm t ty sg}
   	typeOfBuildTerm(s, sth) == (trm, t),
-  	s -> Var{x@x} with typeOfVar t.
-  	//typeOfVar of Var{x@x} in s |-> [(p, (d, t))],
+    typeOfVar of Var{x@x} in s |-> [(_, (_, ty))],
+  	//resolveAssignedVariable(s, sg, Var(x), t) == ty,
+  	// will cast if we have to
+  	cast(trm, t, ty) == term'.
+  	//s -> Var{x@x} with typeOfVar t.
   	
   checkStrategy(s, Assign(OfType(Var(x), ty), sth)) = Assign(Var(x), trm') :- {t trm}
   	typeOfBuildTerm(s, sth) == (trm, t),
   	s -> Var{x@x} with typeOfVar ty,
   	cast(trm, t, ty) == trm'.
+  	
+  resolveAssignedVariable: scope * list((path * (occurrence * TYPE))) * Term * TYPE -> TYPE
+  
+  // type in the build term (t) has to be the same as defined for var  
+  resolveAssignedVariable(s, [(_, (_, t))], Var(x), ty) = t.
+ 
+  resolveAssignedVariable(s, [], Var(x), ty) = ty :-
+	// type is set by the build term if var type is imposed already
+	s -> Var{x@x} with typeOfVar ty. 
       
   typeOfStrategy: scope * Strategy -> TYPE
   
@@ -380,36 +404,62 @@ rules  // BUILD TERMS
   typeOfBuildTerm(s, Tuple(terms)) = (Tuple(terms'), TUP(ts)) :- 
   	typeOfBuildTerms(s, terms) == (terms', ts).
     
-  typeOfBuildTerm(s, App(CallNoArgs(SVar(str)), term)) = (App(CallNoArgs(SVar(str)), trm), t') :- {p d ty term' t}
+  typeOfBuildTerm(s, App(CallNoArgs(SVar(str)), term)) = (App(CallNoArgs(SVar(str)), trm), t') :- {sg ty term' t}
   	// if type of rule is (DYN -> sth) then casting will be handled inside of rule
   	// if type of rule isnt (DYN -> sth) then casting is handled on application site
-  	typeOfRule of Rule{str@str} in s |-> [(p, (d, FUN([t], t')))],
+  	typeOfRule of Rule{str@str} in s |-> sg,
   	typeOfBuildTerm(s, term) == (term', ty),
-	handleRuleApp(s, t, term', ty) == trm.
+	handleRuleDeclApp(sg, term', ty) == (trm, t'). // handles insertion of casts
+
+  handleRuleDeclApp : list((path * (occurrence * TYPE))) * Term * TYPE -> (Term * TYPE)
   
-  handleRuleApp : scope * TYPE * Term * TYPE -> Term
-  handleRuleApp(s, DYN(), term, termType) = Var("x").
+  handleRuleDeclApp([], term, termType) = (term, DYN()).
+  handleRuleDeclApp([(_, (_, FUN([ts], t)))], term, termType) = (term', t) :-
+  	cast(term, termType, ts) == term'.
+ 
+ // use separate rule to handle situations where type is not obtained from scope-graph
+ // e.g. when resolving strategies
+  handleRuleApp : Term * TYPE * TYPE -> (Term * TYPE)
   
-  handleRuleApp(s, t, CastTerm(term, ty1, ty2), termType) = CastTerm(term, ty, ty2) :-
-  	consistent(t, ty2).
-  
-  handleRuleApp(s, t, term, termType) = term' :-
-  	cast(term, termType, t) == term'.
+  // if they're already cast, then just check if they're consistent with the rule being applied on them
+  handleRuleApp(CastTerm(term, ty1, ty2), termType, returnType) = (CastTerm(term, ty1, ty2), returnType) :-
+  	consistent(returnType, ty2).
+   
+  handleRuleApp(OfType(term, ty), termType, returnType) = (OfType(term, ty), returnType) :-
+  	consistent(returnType, ty).
   	
-  typeOfBuildTerm(s, App(Seq(str1, str2), term)) = (App(Seq(str1, str2), trm), t') :- {t term'}
-  	typeOfStrategy(s, Seq(str1, str2)) == FUN([t], t'),
-  	typeOfBuildTerm(s, term) == (term', t),
-  	handleRuleApp(s, t, term', t) == trm.
+  // if they're not cast yet, insert a cast if required
+  handleRuleApp(term, termType, returnType) = (term', returnType) :-
+  	cast(term, termType, returnType) == term'.
+  	
+  typeOfBuildTerm(s, App(str, term)) = (App(str, trm), t) :- {ts t' term'} 
+  // we support Seq... others will suffer
+  	typeOfStrategy(s, str) == FUN(ts, t),
+  	typeOfBuildTerm(s, term) == (term', t'),
+  	handleRuleApp(term', t', t) == (trm, t).
   	
   typeOfBuildTerm(s, Op(c, trms)) = (Op(c, trms'), t) :- {p d ts}
     typeOfCons of Cons{c@c} in s |-> [(p, (d, FUN(ts, t)))],
     typeOfBuildConsTerms(s, trms) == (trms', ts).
+   
+  /* 
+  typeOfBuildTerm(s, OfType(Op(c, trms), ty)) = (OfType(Op(c, trms'), ty), ty) :- {ts t term}
+    typeOfCons of Cons{c@c} in s |-> [(_, (_, FUN(ts, t)))],
+    typeOfBuildConsTerms(s, trms) == (trms', ts),
+    cast(Op(c, trms), t, ty) == term.
+  */
+    
+  typeOfBuildTerm(s, OfType(term, ty)) = (OfType(term, ty), ty) :- {ty' term'}
+    typeOfBuildTerm(s, term) == (term', ty'), 
+    consistent(ty', ty). // check if there is conflicting type information - do we need this?
   
   typeOfBuildTerm(s, OpQ(c, trms)) = (OpQ(c, trms'), t) :- {p d ts}
     typeOfCons of Cons{c@c} in s |-> [(p, (d, FUN(ts, t)))],
     typeOfBuildConsTerms(s, trms) == (trms', ts).
     
-  typeOfBuildTerm(s, CastTerm(e, t1, t2)) = (CastTerm(e, t1, t2), t). // Silence CastTerm
+  typeOfBuildTerm(s, CastTerm(term, t1, t2)) = (CastTerm(term, t1, t2), t2) :- {term'}
+  	typeOfBuildTerm(s, term) == (term', t1),
+  	consistent(t1, t2).  // Silence CastTerm
   
   typeOfBuildTerm(s, Int(val)) = (Int(val), INT()).
   typeOfBuildTerm(s, Real(val)) = (Real(val), REAL()).
@@ -420,6 +470,10 @@ rules  // BUILD TERMS
   typeOfBuildConsTerms: scope * list(Term) -> (list(Term) * list(TYPE))
   
   typeOfBuildConsTerm(s, Var(x)) = (trm, t) :- {p d t'}
+  	typeOfVar of Var{x@x} in s |-> [(p, (d, t'))],
+   	cast(Var(x), t', t) == trm.
+   	
+  typeOfBuildConsTerm(s, OfType(Var(x), t)) = (trm, t) :- {p d t'}
   	typeOfVar of Var{x@x} in s |-> [(p, (d, t'))],
    	cast(Var(x), t', t) == trm.
   

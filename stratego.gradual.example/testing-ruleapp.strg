@@ -1,0 +1,30 @@
+module testing
+  signature
+    sorts Exp String Int Bla ID
+    
+    constructors
+      b : Int -> Bla
+      Var : ID -> Exp
+      Blah : Int * ID -> Exp
+      Eh : Bla -> Exp
+      Meh : Exp -> Exp
+      Multi : Int * ID * Bla * Exp -> Exp
+    
+  
+  rules
+           testing :: ID -> Exp
+           testing : i -> k where
+             k := Var(i)
+         
+          
+           testing : i -> k where
+           	 k := <new> i 
+           
+           
+           x :: ID -> Exp
+           x : i -> <testing> i
+           
+           new : i -> Eh(i)
+           
+           
+           
