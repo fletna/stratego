@@ -220,8 +220,7 @@ rules // rules
    
   ruleOk(s, SDefNoArgs(f, strategy)) = SDefNoArgs(f, strategy) :- {s_r t}
     new s_r, s_r -P-> s,
-    typeOfStrategy(s_r, strategy) == t,
-    consistent(t, DYN()).
+    typeOfStrategy(s_r, strategy) == t.
   
   ruleOk(s, SDefTypeCheck(f, c, rules)) = SDefTypeCheck(f, c, rules).
   
@@ -337,12 +336,14 @@ rules // MATCH TERM
   assertTypeOfMatchTerm(s, Var(x)) = t :-
   	s -> Var{x@x} with typeOfVar t.
   	
+  assertTypeOfMatchTerm(s, Wld()) = DYN().
+  	
   assertTypeOfMatchTerm(s, Tuple(trms)) = TUP(ts) :-
-  	assertTypeOfMatchTerms(s, trms) == ts.
+  	consistentL(assertTypeOfMatchTerms(s, trms),ts).
   	
   assertTypeOfMatchTerm(s, Op(c, trms)) = t :- {p d ts ts'}
   	typeOfCons of Cons{c@c} in s |-> [(p, (d, FUN(ts, t)))],
-  	assertTypeOfMatchTerms(s, trms) == ts.
+  	consistentL(assertTypeOfMatchTerms(s, trms), ts).
   	
   assertTypeOfMatchTerm(s, OfType(Var(x), t)) = t' :-
     s -> Var{x@x} with typeOfVar t,
@@ -356,7 +357,6 @@ rules // MATCH TERM
   
   typeOfMatchTerm(s, Var(x)) = t :-
    s -> Var{x@x} with typeOfVar t.
-   //t == DYN().
    
   /*
   typeOfMatchTerm(s, OfType(Var(x), t)) = t :- {s_t t'}
@@ -369,7 +369,7 @@ rules // MATCH TERM
   typeOfMatchTerm(s, Op(c, trms)) = t :- {p d ts ts'}
     typeOfCons of Cons{c@c} in s |-> [(p, (d, FUN(ts, t)))],
     //typeOfMatchTerms(s, trms) == ts', consistentL(ts, ts').
-    assertTypeOfMatchTerms(s, trms) == ts.
+    consistentL(assertTypeOfMatchTerms(s, trms), ts).
    
   typeOfMatchTerm(s, Tuple(trms)) = TUP(ts) :- 
   	typeOfMatchTerms(s, trms) == ts.
@@ -377,6 +377,8 @@ rules // MATCH TERM
   typeOfMatchTerm(s, Int(val)) = INT().
   typeOfMatchTerm(s, Str(val)) = STRING().
   typeOfMatchTerm(s, Real(val)) = REAL().
+  
+  typeOfMatchTerm(s, Wld()) = DYN().
   
   typeOfMatchTerm(s, ListTail(heads, tail)) = LIST(t) :- {ts}
     typeOfMatchTerms(s, heads) == ts,
