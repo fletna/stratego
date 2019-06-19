@@ -10,7 +10,11 @@ imports
   context-free syntax
     Term.CastTerm = <<Term> : <TYPE> ~\> <TYPE>> {prefer}
     Term.OfType = <<Term> : <TYPE>>
+    PreTerm.OfType = <<PreTerm> : <TYPE>> {prefer}
+   
+    
     Term = "{" Term "}" {bracket}
+    PreTerm = "{" PreTerm "}" {bracket}
     
   sorts TYPE
   context-free syntax
@@ -25,9 +29,12 @@ imports
   	RuleDef.RDeclT = <<Id> :: [<{TYPE ", "}*>] * [<{TYPE ", "}*>] * <TYPE> -\> <TYPE>>
 
   context-free priorities
+  	Term.OfType > Term.App
+    /*
     RuleDef.RDefNoArgs > Term.OfType,
     Term.CastTerm > Term.App,
     Term.CastTerm > Term.OfType,
     RuleDef.RDecl > RuleDef.RDefNoArgs,
     RuleDef.RDecl > Term.OfType
+    */
     
