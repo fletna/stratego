@@ -23,10 +23,12 @@ imports
     TYPE.INT = [int]
     TYPE.REAL = [real]
     TYPE.DYN = [?]
+    TYPE.TUP = [([{TYPE ", "}+])]
     
   context-free syntax
-  	RuleDef.RDecl = <<Id> :: <TYPE> -\> <TYPE>>
-  	RuleDef.RDeclT = <<Id> :: [<{TYPE ", "}*>] * [<{TYPE ", "}*>] * <TYPE> -\> <TYPE>>
+    RuleDef.RDeclNoArgs = <<Id> :: <TYPE> -\> <TYPE>>
+  	RuleDef.RDecl = <<Id> :: [<{TYPE ", "}+>] -\> <TYPE>>
+  	RuleDef.RDeclT = <<Id> :: [<{TYPE ", "}*> | <{TYPE ", "}*>] * <TYPE> -\> <TYPE>>
 
   context-free priorities
   	Term.OfType > Term.App

@@ -24,8 +24,9 @@ signature
     SDefNoArgs   : string * Strategy -> Def
     SDefTypeCheck: string * string * list(Type) -> Def
 
-    RDecl	     : string * TYPE * TYPE -> Def
-    RDeclT		 : string * list(TYPE) * list(TYPE) * TYPE -> Def
+    RDeclNoArgs  : string * TYPE * TYPE -> Def
+    RDecl	     : string * list(TYPE) * TYPE * TYPE -> Def
+    RDeclT		 : string * list(TYPE) * list(TYPE) * TYPE * TYPE -> Def
     ExtSDefInl   : string * list(Typedid) * list(Typedid) * Strategy -> Def
     AnnoDef      : list(string) * Def -> Def
     RDef         : string * list(Typedid) * Rule -> Def
@@ -87,6 +88,11 @@ signature
     INT : TYPE
     REAL : TYPE
     FUN : list(TYPE) * TYPE -> TYPE
+    //     strats       term         match  build
+    DEF : list(TYPE) * list(TYPE) * TYPE * TYPE -> TYPE
+    //      match  build
+    STRAT : TYPE * TYPE -> TYPE
+
     TUP : list(TYPE) -> TYPE
     LIST : TYPE -> TYPE
     DYN : TYPE
@@ -219,23 +225,36 @@ rules // rules
   ruleOk : scope * Def -> Def
   rulesOk maps ruleOk(*, list(*)) = list(*)
   
-  ruleOk(s, RDecl(f, t1, t2)) = RDecl(f, t1, t2) :-
-  	s -> Rule{f@f} with typeOfRule FUN([t1], t2). 
-   
-  ruleOk(s, SDefNoArgs(f, strategy)) = SDefNoArgs(f, strategy) :- {s_r t}
-    new s_r, s_r -P-> s,
-    typeOfStrategy(s_r, strategy) == t.
+  ruleOk(s, RDeclNoArgs(f, tMatch, tBuild)) = RDeclNoArgs(f, tMatch, tBuild) :-
+  	s -> Rule{f@f} with typeOfRule DEF([], [], tMatch, tBuild). 
+  	
+  ruleOk(s, RDecl(f, tTerm, tMatch, tBuild)) = RDecl(f, tTerm, tMatch, tBuild) :-
+    s -> Rule{f@f} with typeOfRule DEF([], tTerm, tMatch, tBuild).
+    
+  ruleOk(s, RDeclT(f, tStrat, tTerm, tMatch, tBuild)) = RDeclT(f, tStrat, tTerm, tMatch, tBuild) :-
+    s -> Rule{f@f} with typeOfRule DEF(tStrat, tTerm, tMatch, tBuild).
   
   ruleOk(s, SDefTypeCheck(f, c, rules)) = SDefTypeCheck(f, c, rules).
   
-  ruleOk(s, RDefNoArgs(f, r)) = def :- {s_r t1 t2 ts sg}
+  ruleOk(s, rd@RDefNoArgs(f, _)) = def :- {s_r sg}
     typeOfRule of Rule{f@f} in s |-> sg,
-    resolveRule(s, RDefNoArgs(f, r), sg) == def.  
+    resolveRule(s, rd, sg) == def.
+  
+  ruleOk(s, rd@RDef(f, _, _)) = def :- {sg}
+    typeOfRule of Rule{f@f} in s |-> sg,
+    resolveRule(s, rd, sg) == def.
     
-  ruleOk(s, SDef(f, args, strategy)) = SDef(f, args, strategy) :- {s_r t t'}
-    new s_r, s_r -P-> s,
-    typeOfTypedids(s_r, args) == t',
-    typeOfStrategy(s_r, strategy) == t.
+  ruleOk(s, rd@RDefT(f, _, _, _)) = def :- {sg}
+    typeOfRule of Rule{f@f} in s |-> sg,
+    resolveRule(s, rd, sg) == def.
+
+  ruleOk(s, sd@SDefNoArgs(f, _)) = def :- {sg}
+  	typeOfRule of Rule{f@f} in s |-> sg,
+  	resolveRule(s, sd, sg) == def.
+    
+  ruleOk(s, sd@SDef(f, _, _)) = def :- {sg}
+    typeOfRule of Rule{f@f} in s |-> sg,
+    resolveRule(s, sd, sg) == def.
     
   typeOfTypedid : scope * Typedid -> TYPE
   typeOfTypedids maps typeOfTypedid(*, list(*)) = list(*)
@@ -264,13 +283,29 @@ rules // rules
    
   resolveRuleMatchTerm(_ , t) :- t == DYN(). // there will be constraints already for other cases
     
-  resolveRule(s, RDefNoArgs(f, Rule(trm1, trm2, cond)), [(_, (_, FUN([t], t')))]) = def :- {s_r t1 t2 trm2' cond'}
+  resolveRule(s, RDefNoArgs(f, Rule(trm1, trm2, cond)), [(_, (_, DEF([], [], t, t')))]) = def :- {s_r t1 t2 trm2' cond'}
   	new s_r, s_r -P-> s,
   	typeOfMatchTerm(s_r, trm1) == t,
     typeOfBuildTerm(s_r, trm2) == (trm2', t'),
     resolveRuleBuildTerm(s_r, trm2', t'), // will set variable in scope graph if necessary
     checkConds(s_r, cond) == cond',
   	def == RDefNoArgs(f, Rule(trm1, trm2', cond')).
+  	
+  resolveRule(s, RDef(f, args, Rule(trm1, trm2, cond)), [(_, (_, DEF([], tTerm, tMatch, tBuild)))]) = def :- {s_r cond' trm2'}
+  	new s_r, s_r -P-> s,
+  	typeOfMatchTerm(s_r, trm1) == tMatch,
+    typeOfBuildTerm(s_r, trm2) == (trm2', tBuild),
+    resolveRuleBuildTerm(s_r, trm2', tBuild), // will set variable in scope graph if necessary
+    checkConds(s_r, cond) == cond',
+  	def == RDefNoArgs(f, Rule(trm1, trm2', cond')).
+  	
+  resolveRule(s, SDefNoArgs(f, strat), []) = SDefNoArgs(f, strat) :- {s_r}
+    new s_r, s_r -P-> s,
+    typeOfStrategy(s_r, strat) == STRAT(DYN(), DYN()).
+    
+  resolveRule(s, SDefNoArgs(f, strat), [(_, (_, DEF([], [], tMatch, tBuild)))]) = SDefNoArgs(f, strat) :- {s_r}
+    new s_r, s_r -P-> s,
+    typeOfStrategy(s_r, strat) == STRAT(tMatch, tBuild).
   	
   resolveRuleBuildTerm : scope * Term * TYPE
   resolveRuleBuildTerm(s, NoAnnoList(trm), t) :-
@@ -280,7 +315,6 @@ rules // rules
   	s -> Var{x@x} with typeOfVar t.
   	
   resolveRuleBuildTerm(s, term, t).
-  	
   	  
   checkCond: scope * RuleCond -> RuleCond
   checkConds maps checkCond(*, list(*)) = list(*)
@@ -322,9 +356,9 @@ rules // rules
       
   typeOfStrategy: scope * Strategy -> TYPE
   
-  typeOfStrategy(s, Seq(str1, str2)) = FUN([t11], t22) :- {t12 t21}
-  	typeOfStrategy(s, str1) == FUN([t11], t12),
-  	typeOfStrategy(s, str2) == FUN([t21], t22),
+  typeOfStrategy(s, Seq(str1, str2)) = STRAT(t11, t22) :- {t12 t21}
+  	typeOfStrategy(s, str1) == STRAT(t11, t12),
+  	typeOfStrategy(s, str2) == STRAT(t21, t22),
   	consistent(t12,t21).
   	
   typeOfStrategy(s, CallNoArgs(SVar(str))) = t :- {p d t'}
@@ -333,16 +367,16 @@ rules // rules
   
   typeOfTerm: scope * Term -> TYPE
   
-  typeOfStrategy(s, Match(trm)) = FUN([t], DYN()) :-
+  typeOfStrategy(s, Match(trm)) = STRAT(t, DYN()) :-
     typeOfMatchTerm(s, trm) == t.
     
-  typeOfStrategy(s, Build(trm)) = FUN([DYN()], t) :- {trm'}
+  typeOfStrategy(s, Build(trm)) = STRAT(DYN(), t) :- {trm'}
     typeOfBuildTerm(s, trm) == (trm', t).
     
-  typeOfStrategy(s, Id()) = FUN([DYN()], DYN()).
+  typeOfStrategy(s, Id()) = STRAT(DYN(), DYN()).
   
-  typeOfStrategy(s, LChoice(str1, str2)) = FUN([DYN()], DYN()).
-
+  typeOfStrategy(s, LChoice(str1, str2)) = STRAT(DYN(), DYN()).
+  
 rules // MATCH TERM    
   typeOfMatchTerm : scope * Term -> TYPE
   typeOfMatchTerms maps typeOfMatchTerm(*, list(*)) = list(*)
@@ -433,7 +467,7 @@ rules  // BUILD TERMS
   handleRuleDeclApp : list((path * (occurrence * TYPE))) * Term * TYPE -> (Term * TYPE)
   
   handleRuleDeclApp([], term, termType) = (term, DYN()).
-  handleRuleDeclApp([(_, (_, FUN([ts], t)))], term, termType) = (term', t) :-
+  handleRuleDeclApp([(_, (_, DEF(_, _, ts, t)))], term, termType) = (term', t) :-
   	cast(term, termType, ts) == term'.
  
  // use separate rule to handle situations where type is not obtained from scope-graph
@@ -453,7 +487,7 @@ rules  // BUILD TERMS
   	
   typeOfBuildTerm(s, App(str, term)) = (App(str, trm), t) :- {ts t' term'} 
   // we support Seq... others will suffer
-  	typeOfStrategy(s, str) == FUN(ts, t),
+  	typeOfStrategy(s, str) == STRAT(ts, t),
   	typeOfBuildTerm(s, term) == (term', t'),
   	handleRuleApp(term', t', t) == (trm, t).
   	
