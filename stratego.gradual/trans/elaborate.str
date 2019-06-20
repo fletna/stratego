@@ -70,9 +70,13 @@ rules // insert type checks
           )
         )
 
-  remove-rule-hints = topdown(try(remove-rule-hint))
-  remove-rule-hint : Strategies(rs) -> Strategies(<filter(not(?RDecl(_, _, _)))> rs)
-  remove-rule-hint : Rules(rs) -> Rules(<filter(not(?RDecl(_, _, _)))> rs)
+  remove-rule-declarations = topdown(try(remove-rule-declaration))
+  remove-rule-declaration : Strategies(rs) -> Strategies(<filter(not(rule-declaration))> rs)
+  remove-rule-declaration : Rules(rs) -> Rules(<filter(not(rule-declaration))> rs)
+  
+  rule-declaration = ?RDeclNoArgs(_, _)
+  rule-declaration = ?RDecl(_, _, _)
+  rule-declaration = ?RDeclT(_, _, _, _)
 
 rules // cast terms
 
@@ -131,5 +135,5 @@ rules // menu items
       (source-ast, _, _, path, project-path) -> (filename, pretty-printed)
     with
       filename := <guarantee-extension(|"el.str")> path
-    ; transformed-ast := <insert-casts(|path);insert-typechecks(|path);transform-cast-terms;remove-rule-hints> source-ast
+    ; transformed-ast := <insert-casts(|path);insert-typechecks(|path);transform-cast-terms;remove-rule-declarations> source-ast
     ; pretty-printed := <pp-StrategoGradual-string> transformed-ast

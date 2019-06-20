@@ -16,6 +16,7 @@ signature
     
     FunType      : list(Type) * Type -> Type
     ConstType    : Sort -> Type
+    C_STRING     : Type
     
     SortNoArgs   : string -> Sort
     Sort         : string * list(Sort) -> Sort
@@ -24,9 +25,9 @@ signature
     SDefNoArgs   : string * Strategy -> Def
     SDefTypeCheck: string * string * list(Type) -> Def
 
-    RDeclNoArgs  : string * TYPE * TYPE -> Def
-    RDecl	     : string * list(TYPE) * TYPE * TYPE -> Def
-    RDeclT		 : string * list(TYPE) * list(TYPE) * TYPE * TYPE -> Def
+    RDeclNoArgs  : string * TYPE -> Def
+    RDecl	     : string * list(TYPE) * TYPE -> Def
+    RDeclT		 : string * list(TYPE) * list(TYPE) * TYPE -> Def
     ExtSDefInl   : string * list(Typedid) * list(Typedid) * Strategy -> Def
     AnnoDef      : list(string) * Def -> Def
     RDef         : string * list(Typedid) * Rule -> Def
@@ -42,7 +43,10 @@ signature
     WithClause   : Strategy -> RuleCond
     
     BA           : Strategy * Term -> Strategy
+    AM           : Strategy * Term -> Strategy
     CallNoArgs   : SVar -> Strategy
+    Call         : SVar * list(Strategy) -> Strategy
+    CallT        : SVar * list(Strategy) * list(Term) -> Strategy
     CastValStrat : Def
    
     SVar         : string -> SVar
@@ -88,7 +92,7 @@ signature
     INT : TYPE
     REAL : TYPE
     FUN : list(TYPE) * TYPE -> TYPE
-    //     strats       term         match  build
+    //     strats       term        match  build
     DEF : list(TYPE) * list(TYPE) * TYPE * TYPE -> TYPE
     //      match  build
     STRAT : TYPE * TYPE -> TYPE
@@ -127,8 +131,9 @@ rules
     sections' == concatenate(sections, [typechecks]).
     
   consistent: TYPE * TYPE
-  consistent(DYN(), T).
-  consistent(T, DYN()).
+  consistent(T, A) :- T == A.
+  consistent(DYN(), _).
+  consistent(_, DYN()).
   
   consistentL maps consistent(list(*), list(*))
   
@@ -176,13 +181,12 @@ rules // sorts
     d == Sort{srt@srt},
     s -> d with typeOfSort SRT(srt).
   
-  /*
   sortOk(s, Sort(srt, vars)) :- {d var_t}
     d == Sort{srt@srt},
     s -> d with typeOfSort SRT(srt),
     typeOfSorts(s, vars) == var_t.
+
   sortOk(s, SortVar(x)).
-  */
   
   sigSectionOk(s, Constructors(cdecls)) = Constructors(cdecls) :- 
     consDeclsOk(s, cdecls).
@@ -203,6 +207,7 @@ rules // sorts
   typeOfTypes maps typeOfType(*, list(*)) = list(*)
   
   typeOfType(s, ConstType(srt)) = typeOfSort(s, srt).
+  typeOfType(s, C_STRING()) = STRING().
   
   typeOfSort : scope * Sort -> TYPE
   typeOfSorts maps typeOfSort(*, list(*)) = list(*)
@@ -225,13 +230,13 @@ rules // rules
   ruleOk : scope * Def -> Def
   rulesOk maps ruleOk(*, list(*)) = list(*)
   
-  ruleOk(s, RDeclNoArgs(f, tMatch, tBuild)) = RDeclNoArgs(f, tMatch, tBuild) :-
+  ruleOk(s, RDeclNoArgs(f, STRAT(tMatch, tBuild))) = RDeclNoArgs(f, STRAT(tMatch, tBuild)) :-
   	s -> Rule{f@f} with typeOfRule DEF([], [], tMatch, tBuild). 
   	
-  ruleOk(s, RDecl(f, tTerm, tMatch, tBuild)) = RDecl(f, tTerm, tMatch, tBuild) :-
-    s -> Rule{f@f} with typeOfRule DEF([], tTerm, tMatch, tBuild).
+  ruleOk(s, RDecl(f, tStrat, STRAT(tMatch, tBuild))) = RDecl(f, tStrat, STRAT(tMatch, tBuild)) :-
+    s -> Rule{f@f} with typeOfRule DEF(tStrat, [], tMatch, tBuild).
     
-  ruleOk(s, RDeclT(f, tStrat, tTerm, tMatch, tBuild)) = RDeclT(f, tStrat, tTerm, tMatch, tBuild) :-
+  ruleOk(s, RDeclT(f, tStrat, tTerm, STRAT(tMatch, tBuild))) = RDeclT(f, tStrat, tTerm, STRAT(tMatch, tBuild)) :-
     s -> Rule{f@f} with typeOfRule DEF(tStrat, tTerm, tMatch, tBuild).
   
   ruleOk(s, SDefTypeCheck(f, c, rules)) = SDefTypeCheck(f, c, rules).
@@ -299,9 +304,9 @@ rules // rules
     checkConds(s_r, cond) == cond',
   	def == RDefNoArgs(f, Rule(trm1, trm2', cond')).
   	
-  resolveRule(s, SDefNoArgs(f, strat), []) = SDefNoArgs(f, strat) :- {s_r}
+  resolveRule(s, SDefNoArgs(f, strat), []) = SDefNoArgs(f, strat) :- {s_r tMatch tBuild}
     new s_r, s_r -P-> s,
-    typeOfStrategy(s_r, strat) == STRAT(DYN(), DYN()).
+    typeOfStrategy(s_r, strat) == STRAT(tMatch, tBuild).
     
   resolveRule(s, SDefNoArgs(f, strat), [(_, (_, DEF([], [], tMatch, tBuild)))]) = SDefNoArgs(f, strat) :- {s_r}
     new s_r, s_r -P-> s,
@@ -332,13 +337,9 @@ rules // rules
   	checkStrategy(s, str2) == str2',
   	typeOfStrategy(s, Seq(str1, str2)) == t3.
   	  
-  checkStrategy(s, Assign(Var(x), sth)) = Assign(Var(x), term') :- {trm t ty sg}
+  checkStrategy(s, Assign(Var(x), sth)) = Assign(Var(x), trm) :- {t}
   	typeOfBuildTerm(s, sth) == (trm, t),
-    typeOfVar of Var{x@x} in s |-> [(_, (_, ty))],
-  	//resolveAssignedVariable(s, sg, Var(x), t) == ty,
-  	// will cast if we have to
-  	cast(trm, t, ty) == term'.
-  	//s -> Var{x@x} with typeOfVar t.
+  	s -> Var{x@x} with typeOfVar t.
   	
   checkStrategy(s, Assign(OfType(Var(x), ty), sth)) = Assign(Var(x), trm') :- {t trm}
   	typeOfBuildTerm(s, sth) == (trm, t),
@@ -361,9 +362,8 @@ rules // rules
   	typeOfStrategy(s, str2) == STRAT(t21, t22),
   	consistent(t12,t21).
   	
-  typeOfStrategy(s, CallNoArgs(SVar(str))) = t :- {p d t'}
-  	typeOfRule of Rule{str@str} in s |-> [(p, (d, t'))],
-  	t == t'.
+  typeOfStrategy(s, CallNoArgs(SVar(str))) = STRAT(tMatch, tBuild) :- {sg}
+  	resolveRuleByName(s, str) == DEF(_, _, tMatch, tBuild).
   
   typeOfTerm: scope * Term -> TYPE
   
@@ -377,6 +377,28 @@ rules // rules
   
   typeOfStrategy(s, LChoice(str1, str2)) = STRAT(DYN(), DYN()).
   
+  typeOfStrategy(s, BA(strat, term)) = typeOfStrategy(s, Seq(Build(term), strat)).
+  typeOfStrategy(s, AM(strat, term)) = typeOfStrategy(s, Seq(strat, Match(term))).
+  
+  typeOfStrategy(s, Call(SVar(strat), strs)) = STRAT(tMatch, tBuild) :- {tStrat tTerm}
+    resolveRuleByName(s, strat) == DEF(tStrat, tTerm, tMatch, tBuild).
+
+  typeOfStrategy(s, CallT(SVar(strat), strs, trms)) = STRAT(tMatch, tBuild) :- {tStrat tTerm tTerm'}
+    resolveRuleByName(s, strat) == DEF(tStrat, tTerm, tMatch, tBuild),
+    typeOfBuildTerms(s, trms) == (_, tTerm'),
+    consistentL(tTerm, tTerm').
+    
+  resolveRuleByName : scope * string -> TYPE
+  
+  resolveRuleByName(s, name) = t :- {sg}
+    typeOfRule of Rule{name@name} in s |-> sg,
+    resolveRuleByOccurrence(sg) == t.
+    
+  resolveRuleByOccurrence : list((path * (occurrence * TYPE))) -> TYPE
+
+  resolveRuleByOccurrence([]) = DEF([], [], DYN(), DYN()).
+  resolveRuleByOccurrence([(_, (_, t))]) = t.
+  
 rules // MATCH TERM    
   typeOfMatchTerm : scope * Term -> TYPE
   typeOfMatchTerms maps typeOfMatchTerm(*, list(*)) = list(*)
@@ -387,14 +409,14 @@ rules // MATCH TERM
   assertTypeOfMatchTerm(s, Var(x)) = t :-
   	s -> Var{x@x} with typeOfVar t.
   	
-  assertTypeOfMatchTerm(s, Wld()) = DYN().
+  assertTypeOfMatchTerm(s, Wld()) = t.
   	
   assertTypeOfMatchTerm(s, Tuple(trms)) = TUP(ts) :-
   	consistentL(assertTypeOfMatchTerms(s, trms),ts).
   	
-  assertTypeOfMatchTerm(s, Op(c, trms)) = t :- {p d ts ts'}
+  assertTypeOfMatchTerm(s, Op(c, trms)) = t :- {p d ts ts' t'}
   	typeOfCons of Cons{c@c} in s |-> [(p, (d, FUN(ts, t)))],
-  	consistentL(assertTypeOfMatchTerms(s, trms), ts).
+  	assertTypeOfMatchTerms(s, trms) == ts.
   	
   assertTypeOfMatchTerm(s, OfType(Var(x), t)) = t' :-
     s -> Var{x@x} with typeOfVar t,
@@ -417,10 +439,11 @@ rules // MATCH TERM
     consistent(t, t').
   */
   
-  typeOfMatchTerm(s, Op(c, trms)) = t :- {p d ts ts'}
-    typeOfCons of Cons{c@c} in s |-> [(p, (d, FUN(ts, t)))],
+  typeOfMatchTerm(s, Op(c, trms)) = t :- {p d ts ts' t'}
+    typeOfCons of Cons{c@c} in s |-> [(p, (d, FUN(ts, t')))],
     //typeOfMatchTerms(s, trms) == ts', consistentL(ts, ts').
-    consistentL(assertTypeOfMatchTerms(s, trms), ts).
+    consistent(t, t'),
+    assertTypeOfMatchTerms(s, trms) == ts.
    
   typeOfMatchTerm(s, Tuple(trms)) = TUP(ts) :- 
   	typeOfMatchTerms(s, trms) == ts.
@@ -463,7 +486,7 @@ rules  // BUILD TERMS
   	typeOfRule of Rule{str@str} in s |-> sg,
   	typeOfBuildTerm(s, term) == (term', ty),
 	handleRuleDeclApp(sg, term', ty) == (trm, t'). // handles insertion of casts
-
+	
   handleRuleDeclApp : list((path * (occurrence * TYPE))) * Term * TYPE -> (Term * TYPE)
   
   handleRuleDeclApp([], term, termType) = (term, DYN()).
@@ -538,6 +561,8 @@ rules  // BUILD TERMS
   typeOfBuildConsTerms(s, [hd|terms]) = ([hd'|terms'], [t|types]) :-
     typeOfBuildConsTerm(s, hd) == (hd', t),
     typeOfBuildConsTerms(s, terms) == (terms', types).
+  
+  typeOfBuildConsTerms(s, []) = ([], []).
   
 rules // insertTypeChecks
 
