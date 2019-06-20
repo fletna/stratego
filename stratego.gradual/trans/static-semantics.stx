@@ -78,7 +78,7 @@ signature
     Build        : Term -> Strategy
     Id           : Strategy
     LChoice      : Strategy * Strategy -> Strategy
-
+    
     
   sorts TYPE
   constructors
@@ -104,6 +104,7 @@ signature
     Cons : string
     Var : string
     Rule : string
+    Strategy : string
     
   relations
     typeOfSort     : occurrence -> TYPE
@@ -234,6 +235,26 @@ rules // rules
   ruleOk(s, RDeclT(f, tStrat, tTerm, tMatch, tBuild)) = RDeclT(f, tStrat, tTerm, tMatch, tBuild) :-
     s -> Rule{f@f} with typeOfRule DEF(tStrat, tTerm, tMatch, tBuild).
   
+  // Id * List(Typedid) * List(Typedid) * Strategy -> StrategyDef
+  
+  ruleOk(s, SDefT(f, strParams, termParams, str)) = SDefT(f, strParams, termParams, str) :- {s_r t}
+  	new s_r, s_r -P-> s,
+  	handleStrategyParams(s, strParams),
+	handleTermParams(s, termParams),
+  	typeOfStrategy(s_r, str) == t. 
+  	
+  handleStrategyParam : scope * Typedid
+  handleStrategyParams maps handleStrategyParam(*, list(*))
+  
+  handleStrategyParam(s, DefaultVarDec(x)) :-
+  	s -> Strategy{x@x} with typeOfStrategy FUN([DYN()], DYN()).
+  	
+  handleTermParam : scope * Typedid
+  handleTermParams maps handleStrategyParam(*, list(*))
+  
+  handleTermParam(s, DefaultVarDec(x)) :-
+  	s -> Var{x@x} with typeOfVar DYN().
+  
   ruleOk(s, SDefTypeCheck(f, c, rules)) = SDefTypeCheck(f, c, rules).
   
   ruleOk(s, rd@RDefNoArgs(f, _)) = def :- {s_r sg}
@@ -356,6 +377,27 @@ rules // rules
       
   typeOfStrategy: scope * Strategy -> TYPE
   
+  typeOfStrategy(s, LChoice(str1, str2)) = STRAT(t, t') :- {t11 t12 t21 t22}
+  	typeOfStrategy(s, str1) == STRAT(t11, t12),
+  	typeOfStrategy(s, str2) == STRAT(t21, t22),
+  	handleTypePair(t11, t21) == t,
+  	handleTypePair(t12, t22) == t'.
+  	
+  mostGeneralType: TYPE * TYPE -> TYPE
+  mostGeneralType(t1, t2) = DYN() :- t1 != t2.
+  mostGeneralType(t, t) = t.
+  
+  mostGeneralType(TUP(tys1), TUP(tys2)) = TUP(ts) :-
+   mostGeneralTypes(tys1, tys2) == ts.
+  
+  mostGeneralTypes maps mostGeneralType(list(*), list(*)) = list(*)
+  
+  handleTypePair : TYPE * TYPE -> TYPE
+  handleTypePairs maps handleTypePair(list(*), list(*)) = list(*) 
+  
+  handleTypePair(t1,t2) = t :-
+  	mostGeneralType(t1,t2) == t.
+  	
   typeOfStrategy(s, Seq(str1, str2)) = STRAT(t11, t22) :- {t12 t21}
   	typeOfStrategy(s, str1) == STRAT(t11, t12),
   	typeOfStrategy(s, str2) == STRAT(t21, t22),
@@ -374,9 +416,7 @@ rules // rules
     typeOfBuildTerm(s, trm) == (trm', t).
     
   typeOfStrategy(s, Id()) = STRAT(DYN(), DYN()).
-  
-  typeOfStrategy(s, LChoice(str1, str2)) = STRAT(DYN(), DYN()).
-  
+    
 rules // MATCH TERM    
   typeOfMatchTerm : scope * Term -> TYPE
   typeOfMatchTerms maps typeOfMatchTerm(*, list(*)) = list(*)
