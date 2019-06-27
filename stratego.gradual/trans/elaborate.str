@@ -82,6 +82,12 @@ rules // cast terms
 
   transform-cast-terms = topdown(try(transform-cast-term))
   
+  transform-cast-term : 
+  	OfType(e, STRING()) -> App(CallNoArgs(SVar("is-string")), e)
+  
+  transform-cast-term :
+    OfType(e, DYN()) -> e
+  
   transform-cast-term :
       CastTerm(e, _, SRT(t)) ->App(
         CallT(SVar("cast-value"), [CallNoArgs(SVar(name))], [NoAnnoList(Str(nameQ))])
