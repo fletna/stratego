@@ -383,6 +383,8 @@ rules // rules
     resolveRuleByName(s, strat) == DEF(tStrat, tTerm, tMatch, tBuild),
     typeOfBuildTerms(s, trms) == (_, tTerm'),
     consistentL(tTerm, tTerm').
+  
+  typeOfStrategy(s, Assign(_,_)) = STRAT(DYN(), DYN()).
     
   resolveRuleByName : scope * string -> TYPE
   
