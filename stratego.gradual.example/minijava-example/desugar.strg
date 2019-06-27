@@ -1,9 +1,7 @@
 module desugar
 
-signature // expressions-sig
-  sorts
-    Exp VarRef List(a) ID INT
-
+signature
+  sorts Exp VarRef ID INT
   constructors
     True           : Exp
     False          : Exp
@@ -21,12 +19,10 @@ signature // expressions-sig
     Subscript      : Exp * Exp -> Exp
     Length         : Exp -> Exp
     NewObject      : string -> Exp 
-
   
 signature
   sorts UnOp BinOp 
   constructors
-
     UnExp            : UnOp * Exp -> Exp
     IsNot            : UnOp
     LengthOf         : UnOp
@@ -40,10 +36,6 @@ signature
     Both             : BinOp
     AtIndex          : BinOp
     
-strategies // stdlib
-  oct-string-to-int :: string -> int
-  int-to-string :: int -> string
-  string-starts-with(|string) :: string -> string 
 strategies     
 
   desugar-all = topdown(try(desugar))
@@ -68,3 +60,10 @@ rules
   desugar: IntValue(i) -> IntValue(i')
   where
     i' := <string-starts-with(|"0"); convert-to-oct> i
+
+signature // stdlib
+  sorts List(a)
+strategies // stdlib
+  oct-string-to-int :: string -> int
+  int-to-string :: int -> string
+  string-starts-with(|string) :: string -> string 
