@@ -114,7 +114,7 @@ rules // menu items
   menu-source-elaborate:
       (source-ast, _, _, path, project-path) -> (filename, pretty-printed)
     with
-      filename := <guarantee-extension(|"elaborated.aterm")> path
+      filename := <guarantee-extension(|"el.strg")> path
     ; transformed-ast := <insert-casts(|path)> source-ast
     ; pretty-printed := <pp-StrategoGradual-string> transformed-ast
   
