@@ -1,0 +1,29 @@
+module ex-1-cons-matching
+  signature
+    sorts Exp String Int
+    
+    constructors
+      Var : String -> Exp
+      Int : Int -> Exp
+    constructors
+      Plus : Exp * Exp -> Exp
+    
+  
+  rules
+           swap-plus : Plus(i, j) -> Plus(j, i)
+           
+  rules
+           cast-value(s | typ) = s <+ ?a; report-failure( |<concat-strings> ["Cast to ",typ," failed"], a)
+           
+           strategoGradual--is-a-Exp =
+              ?Var(_)
+           
+           
+           strategoGradual--is-a-Exp =
+              ?Int(_)
+           
+           
+           strategoGradual--is-a-Exp =
+              ?Plus(_, _)
+           
+           

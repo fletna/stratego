@@ -125,12 +125,8 @@ rules
   insertCasts : Module -> Module
   insertCasts(m) = m' :- moduleOkC(m) == m'.
   
-  insertTypeChecks : Module -> Module
-  insertTypeChecks(Module(x, sections)) = Module(x, sections') :- {typechecks}
-    insertTypeCheckSections(sections) == typechecks,
-    sections' == concatenate(sections, [typechecks]).
-    
   consistent: TYPE * TYPE
+  consistent(TUP(T), TUP(A)) :- consistentL(T, A).
   consistent(T, A) :- T == A.
   consistent(DYN(), _).
   consistent(_, DYN()).
@@ -154,7 +150,6 @@ rules moduleOk : Module
   concatenate : list(Section) * list(Section) -> list(Section)
   concatenate([s], s2) = s3 :- s3 == [s|s2].
   concatenate([s|s1], s2) = s3 :- s3 == [s|concatenate(s1, s2)].
-  
 
 rules 
 
@@ -281,6 +276,10 @@ rules // rules
   resolveRuleMatchTerm(Var(x), t) :- t == DYN().
   
   resolveRuleMatchTerm(Tuple([trm|trms]), TUP([ty|tys])) :- 
+  	resolveRuleMatchTerm(trm, ty),
+  	resolveRuleMatchTerm(Tuple(trms), TUP(tys)).
+
+  resolveRuleMatchTerm(NoAnnoList(Tuple([trm|trms])), TUP([ty|tys])) :- 
   	resolveRuleMatchTerm(trm, ty),
   	resolveRuleMatchTerm(Tuple(trms), TUP(tys)).
   
@@ -563,30 +562,6 @@ rules  // BUILD TERMS
     typeOfBuildConsTerms(s, terms) == (terms', types).
   
   typeOfBuildConsTerms(s, []) = ([], []).
-  
-rules // insertTypeChecks
-
-  insertTypeCheckSection : Section -> Section
-  insertTypeCheckSections maps insertTypeCheckSection(list(*)) = *
-  
-  insertTypeCheckSection(Signature(sigSec)) = Strategies([castVal|rs]) :-
-    castVal == CastValStrat(),
-    insertTypeCheckSigSections(sigSec) == rs.
-  
-  insertTypeCheckSection(Rules(rs)) = nil.
-  
-  insertTypeCheckSigSection : SigSection -> list(Def)
-  insertTypeCheckSigSections maps insertTypeCheckSigSection(list(*)) = *
-  
-  insertTypeCheckSigSection(Sorts(sorts)) = nil.
-  insertTypeCheckSigSection(Constructors(cons)) = def :-
-    insertTypeCheckCons(cons) == def.
-    
-  insertTypeCheckCon : OpDecl -> Def
-  insertTypeCheckCons maps insertTypeCheckCon(list(*)) = list(*)
-  
-  insertTypeCheckCon(OpDecl(c, FunType(srts, ConstType(SortNoArgs(typ))))) = SDefTypeCheck(typ, c, srts).
-  
   
 rules // util
 

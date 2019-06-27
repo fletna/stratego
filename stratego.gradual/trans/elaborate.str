@@ -13,6 +13,7 @@ imports
   constructors 
     SDefTypeCheck : ID * ID * List(Type) -> Def
     CastValStrat : Strategy
+    
 
 rules // insert casts
 
@@ -26,25 +27,10 @@ rules // insert casts
 
 rules // insert type checks
 
-  insert-typechecks(|path) :
-      ast -> ast''
+  insert-typechecks: Module(name, sections) -> Module(name, sections')
     where
-      indexed-ast := <stx-index-ast(|path)> ast
-    ; ast' := <stx-evaluate(|"static-semantics", "insertTypeChecks")> [indexed-ast]
-    ; ast'' := <transform-typechecks> ast'
-
-  transform-typechecks = topdown(try(transform-typecheck))
-  
-  transform-typecheck :
-  SDefTypeCheck(typ, name, args) -> SDefNoArgs(typ', Match(NoAnnoList(Op(name, args'))))
-    where
-      typ' := <conc-strings> ("strategoGradual--is-a-", typ)
-    ; args' := <map(insert-typecheck-arg)> args
-
-  insert-typecheck-arg = !Wld()
-  
-  transform-typecheck: 
-      CastValStrat() -> SDefT(
+      cons := <collect-all(?OpDecl(_, _)); map(transform-typecheck)> sections
+    ; typechecker := SDefT(
           "cast-value"
         , [DefaultVarDec("s")]
         , [DefaultVarDec("typ")]
@@ -69,7 +55,21 @@ rules // insert type checks
             )
           )
         )
+      ; sections' := <conc> (sections, [Rules([typechecker|cons])])
+  
+  transform-typecheck :
+  OpDecl(name, FunType(args, ConstType(SortNoArgs(typ)))) -> SDefNoArgs(typ', Match(NoAnnoList(Op(name, args'))))
+    where
+      typ' := <conc-strings> ("strategoGradual--is-a-", typ)
+    ; args' := <map(insert-typecheck-arg)> args
 
+  transform-typecheck :
+  OpDecl(name, ConstType(SortNoArgs(typ))) -> SDefNoArgs(typ', Match(NoAnnoList(Op(name, []))))
+    where
+      typ' := <conc-strings> ("strategoGradual--is-a-", typ)
+
+  insert-typecheck-arg = !Wld()
+  
   remove-rule-declarations = topdown(try(remove-rule-declaration))
   remove-rule-declaration : Strategies(rs) -> Strategies(<filter(not(rule-declaration))> rs)
   remove-rule-declaration : Rules(rs) -> Rules(<filter(not(rule-declaration))> rs)
@@ -107,7 +107,7 @@ rules // menu items
       (source-ast, _, _, path, project-path) -> (filename, elaborated-ast)
     with
       filename := <guarantee-extension(|"elaborated.aterm")> path
-    ; analyzed-ast := <insert-casts(|path);insert-typechecks(|path)> source-ast
+    ; analyzed-ast := <insert-casts(|path);insert-typechecks> source-ast
     ; elaborated-ast := <strip-annos> analyzed-ast
  
   menu-source-insert-casts-pp:
@@ -128,12 +128,12 @@ rules // menu items
       (source-ast, _, _, path, project-path) -> (filename, pretty-printed)
     with
       filename := <guarantee-extension(|"tchk.strg")> path
-    ; transformed-ast := <insert-typechecks(|path)> source-ast
+    ; transformed-ast := <insert-typechecks> source-ast
     ; pretty-printed := <pp-StrategoGradual-string> transformed-ast
     
   menu-source-elaborate-pp:
       (source-ast, _, _, path, project-path) -> (filename, pretty-printed)
     with
       filename := <guarantee-extension(|"el.str")> path
-    ; transformed-ast := <insert-casts(|path);insert-typechecks(|path);transform-cast-terms;remove-rule-declarations> source-ast
+    ; transformed-ast := <insert-casts(|path);insert-typechecks;transform-cast-terms;remove-rule-declarations> source-ast
     ; pretty-printed := <pp-StrategoGradual-string> transformed-ast

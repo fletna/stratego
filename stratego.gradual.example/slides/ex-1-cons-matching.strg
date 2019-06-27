@@ -1,0 +1,17 @@
+module ex-1-cons-matching
+
+signature
+  sorts Exp String Int
+  constructors
+    Var  : String -> Exp 
+    Int  : Int -> Exp
+
+     
+rules
+  swap-plus : Plus(i, j) -> Plus(j, i)
+  
+//  invalid-op : Int(i) -> Var(i)
+
+signature
+  constructors
+    Plus : Exp * Exp -> Exp
