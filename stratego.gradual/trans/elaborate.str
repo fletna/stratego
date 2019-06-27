@@ -100,9 +100,16 @@ rules // cast terms
     name := <conc-strings> ("strategoGradual--is-a-", t)
   ; nameQ := <concat-strings> ["\"", t, "\""]
   
+  
   convert-to-stratego = insert-typechecks; transform-cast-terms; remove-rule-declarations
 
 rules // menu items
+  on-save-compile:
+      (source-ast, _, _, path, project-path) -> (filename, pretty-printed)
+    with
+      filename := <guarantee-extension(|"str")> path
+    ; transformed-ast := <insert-casts(|path);convert-to-stratego> source-ast
+    ; pretty-printed := <pp-StrategoGradual-string> transformed-ast
 
   menu-source-elaborate:
       (source-ast, _, _, path, project-path) -> (filename, pretty-printed)
