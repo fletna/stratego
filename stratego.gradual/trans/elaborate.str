@@ -100,40 +100,20 @@ rules // cast terms
     name := <conc-strings> ("strategoGradual--is-a-", t)
   ; nameQ := <concat-strings> ["\"", t, "\""]
   
+  convert-to-stratego = insert-typechecks; transform-cast-terms; remove-rule-declarations
 
 rules // menu items
 
   menu-source-elaborate:
-      (source-ast, _, _, path, project-path) -> (filename, elaborated-ast)
+      (source-ast, _, _, path, project-path) -> (filename, pretty-printed)
     with
       filename := <guarantee-extension(|"elaborated.aterm")> path
-    ; analyzed-ast := <insert-casts(|path);insert-typechecks> source-ast
-    ; elaborated-ast := <strip-annos> analyzed-ast
- 
-  menu-source-insert-casts-pp:
-      (source-ast, _, _, path, project-path) -> (filename, pretty-printed)
-    with
-      filename := <guarantee-extension(|"elaborated.strg")> path
     ; transformed-ast := <insert-casts(|path)> source-ast
     ; pretty-printed := <pp-StrategoGradual-string> transformed-ast
-    
-  menu-source-transform-casts-pp:
+  
+  menu-source-convert-to-stratego:
       (source-ast, _, _, path, project-path) -> (filename, pretty-printed)
     with
-      filename := <guarantee-extension(|"cst.strg")> path
-    ; transformed-ast := <transform-cast-terms> source-ast
-    ; pretty-printed := <pp-StrategoGradual-string> transformed-ast
-    
-  menu-source-insert-typechecks-pp:
-      (source-ast, _, _, path, project-path) -> (filename, pretty-printed)
-    with
-      filename := <guarantee-extension(|"tchk.strg")> path
-    ; transformed-ast := <insert-typechecks> source-ast
-    ; pretty-printed := <pp-StrategoGradual-string> transformed-ast
-    
-  menu-source-elaborate-pp:
-      (source-ast, _, _, path, project-path) -> (filename, pretty-printed)
-    with
-      filename := <guarantee-extension(|"el.str")> path
-    ; transformed-ast := <insert-casts(|path);insert-typechecks;transform-cast-terms;remove-rule-declarations> source-ast
+      filename := <guarantee-extension(|"str")> path
+    ; transformed-ast := <insert-casts(|path);convert-to-stratego> source-ast
     ; pretty-printed := <pp-StrategoGradual-string> transformed-ast

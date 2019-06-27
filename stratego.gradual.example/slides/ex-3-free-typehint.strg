@@ -1,0 +1,14 @@
+module ex-2-free-var
+
+signature
+  sorts Exp
+  constructors
+    Neg : Exp -> Exp
+
+rules
+
+  create-neg :: Exp -> Exp
+  create-neg : i -> Neg(i)
+  
+  apply-neg : i -> <create-neg> i
+ 
