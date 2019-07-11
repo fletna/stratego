@@ -1,0 +1,13 @@
+module ex-2-free-var
+
+signature
+  sorts Exp
+  constructors
+    Plus : Exp * Exp -> Exp
+    Neg : Exp -> Exp
+     
+
+rules
+  create-plus: (i, j) -> Plus(Neg(i), j)
+  
+  apply-plus: i -> <create-plus> (i, i)

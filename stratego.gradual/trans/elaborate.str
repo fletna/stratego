@@ -13,6 +13,7 @@ imports
   constructors 
     SDefTypeCheck : ID * ID * List(Type) -> Def
     CastValStrat : Strategy
+    
 
 rules // insert casts
 
@@ -26,25 +27,10 @@ rules // insert casts
 
 rules // insert type checks
 
-  insert-typechecks(|path) :
-      ast -> ast''
+  insert-typechecks: Module(name, sections) -> Module(name, sections')
     where
-      indexed-ast := <stx-index-ast(|path)> ast
-    ; ast' := <stx-evaluate(|"static-semantics", "insertTypeChecks")> [indexed-ast]
-    ; ast'' := <transform-typechecks> ast'
-
-  transform-typechecks = topdown(try(transform-typecheck))
-  
-  transform-typecheck :
-  SDefTypeCheck(typ, name, args) -> SDefNoArgs(typ', Match(NoAnnoList(Op(name, args'))))
-    where
-      typ' := <conc-strings> ("strategoGradual--is-a-", typ)
-    ; args' := <map(insert-typecheck-arg)> args
-
-  insert-typecheck-arg = !Wld()
-  
-  transform-typecheck: 
-      CastValStrat() -> SDefT(
+      cons := <collect-all(?OpDecl(_, _)); map(transform-typecheck)> sections
+    ; typechecker := SDefT(
           "cast-value"
         , [DefaultVarDec("s")]
         , [DefaultVarDec("typ")]
@@ -69,14 +55,38 @@ rules // insert type checks
             )
           )
         )
+      ; sections' := <conc> (sections, [Rules([typechecker|cons])])
+  
+  transform-typecheck :
+  OpDecl(name, FunType(args, ConstType(SortNoArgs(typ)))) -> SDefNoArgs(typ', Match(NoAnnoList(Op(name, args'))))
+    where
+      typ' := <conc-strings> ("strategoGradual--is-a-", typ)
+    ; args' := <map(insert-typecheck-arg)> args
 
-  remove-rule-hints = topdown(try(remove-rule-hint))
-  remove-rule-hint : Strategies(rs) -> Strategies(<filter(not(?RDecl(_, _, _)))> rs)
-  remove-rule-hint : Rules(rs) -> Rules(<filter(not(?RDecl(_, _, _)))> rs)
+  transform-typecheck :
+  OpDecl(name, ConstType(SortNoArgs(typ))) -> SDefNoArgs(typ', Match(NoAnnoList(Op(name, []))))
+    where
+      typ' := <conc-strings> ("strategoGradual--is-a-", typ)
+
+  insert-typecheck-arg = !Wld()
+  
+  remove-rule-declarations = topdown(try(remove-rule-declaration))
+  remove-rule-declaration : Strategies(rs) -> Strategies(<filter(not(rule-declaration))> rs)
+  remove-rule-declaration : Rules(rs) -> Rules(<filter(not(rule-declaration))> rs)
+  
+  rule-declaration = ?RDeclNoArgs(_, _)
+  rule-declaration = ?RDecl(_, _, _)
+  rule-declaration = ?RDeclT(_, _, _, _)
 
 rules // cast terms
 
   transform-cast-terms = topdown(try(transform-cast-term))
+  
+  transform-cast-term : 
+  	OfType(e, STRING()) -> App(CallNoArgs(SVar("is-string")), e)
+  
+  transform-cast-term :
+    OfType(e, DYN()) -> e
   
   transform-cast-term :
       CastTerm(e, _, SRT(t)) ->App(
@@ -96,40 +106,27 @@ rules // cast terms
     name := <conc-strings> ("strategoGradual--is-a-", t)
   ; nameQ := <concat-strings> ["\"", t, "\""]
   
+  
+  convert-to-stratego = insert-typechecks; transform-cast-terms; remove-rule-declarations
 
 rules // menu items
+  on-save-compile:
+      (source-ast, _, _, path, project-path) -> (filename, pretty-printed)
+    with
+      filename := <guarantee-extension(|"str")> path
+    ; transformed-ast := <insert-casts(|path);convert-to-stratego> source-ast
+    ; pretty-printed := <pp-StrategoGradual-string> transformed-ast
 
   menu-source-elaborate:
-      (source-ast, _, _, path, project-path) -> (filename, elaborated-ast)
-    with
-      filename := <guarantee-extension(|"elaborated.aterm")> path
-    ; analyzed-ast := <insert-casts(|path);insert-typechecks(|path)> source-ast
-    ; elaborated-ast := <strip-annos> analyzed-ast
- 
-  menu-source-insert-casts-pp:
       (source-ast, _, _, path, project-path) -> (filename, pretty-printed)
     with
-      filename := <guarantee-extension(|"elaborated.strg")> path
+      filename := <guarantee-extension(|"el.strg")> path
     ; transformed-ast := <insert-casts(|path)> source-ast
     ; pretty-printed := <pp-StrategoGradual-string> transformed-ast
-    
-  menu-source-transform-casts-pp:
+  
+  menu-source-convert-to-stratego:
       (source-ast, _, _, path, project-path) -> (filename, pretty-printed)
     with
-      filename := <guarantee-extension(|"cst.strg")> path
-    ; transformed-ast := <transform-cast-terms> source-ast
-    ; pretty-printed := <pp-StrategoGradual-string> transformed-ast
-    
-  menu-source-insert-typechecks-pp:
-      (source-ast, _, _, path, project-path) -> (filename, pretty-printed)
-    with
-      filename := <guarantee-extension(|"tchk.strg")> path
-    ; transformed-ast := <insert-typechecks(|path)> source-ast
-    ; pretty-printed := <pp-StrategoGradual-string> transformed-ast
-    
-  menu-source-elaborate-pp:
-      (source-ast, _, _, path, project-path) -> (filename, pretty-printed)
-    with
-      filename := <guarantee-extension(|"el.str")> path
-    ; transformed-ast := <insert-casts(|path);insert-typechecks(|path);transform-cast-terms;remove-rule-hints> source-ast
+      filename := <guarantee-extension(|"str")> path
+    ; transformed-ast := <insert-casts(|path);convert-to-stratego> source-ast
     ; pretty-printed := <pp-StrategoGradual-string> transformed-ast

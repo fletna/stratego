@@ -1,0 +1,69 @@
+module desugar
+
+signature
+  sorts Exp VarRef ID INT
+  constructors
+    True           : Exp
+    False          : Exp
+    This           : Exp
+    VarRef         : string -> Exp 
+    IntValue       : string -> Exp
+    Not            : Exp -> Exp
+    Add            : Exp * Exp -> Exp
+    Sub            : Exp * Exp -> Exp 
+    Mul            : Exp * Exp -> Exp
+    Lt             : Exp * Exp -> Exp
+    And            : Exp * Exp -> Exp 
+    Call           : Exp * ID * List(Exp) -> Exp
+    NewArray       : Exp -> Exp
+    Subscript      : Exp * Exp -> Exp
+    Length         : Exp -> Exp
+    NewObject      : string -> Exp 
+  
+signature
+  sorts UnOp BinOp 
+  constructors
+    UnExp            : UnOp * Exp -> Exp
+    IsNot            : UnOp
+    LengthOf         : UnOp
+    ArrayInitializer : UnOp
+    
+    BinExp           : BinOp * Exp * Exp -> Exp
+    Plus             : BinOp
+    Minus            : BinOp
+    Times            : BinOp
+    LessThan         : BinOp
+    Both             : BinOp
+    AtIndex          : BinOp
+    
+strategies     
+
+  desugar-all = topdown(try(desugar))
+ 
+  convert-to-oct :: string -> string
+  convert-to-oct = oct-string-to-int; int-to-string
+  
+rules
+
+  desugar: Not(e1)           -> UnExp(IsNot(), e1)
+  desugar: Length(e1)        -> UnExp(LengthOf(), e1)
+  desugar: NewArray(e1)      -> UnExp(ArrayInitializer(), e1)
+
+  desugar: Add(e1, e2)       -> BinExp(Plus(), e1, e2)
+  desugar: Sub(e1, e2)       -> BinExp(Minus(), e1, e2)
+  desugar: Mul(e1, e2)       -> BinExp(Times(), e1, e2)
+  desugar: And(e1, e2)       -> BinExp(Both(), e1, e2)
+  desugar: Lt(e1, e2)        -> BinExp(LessThan(), e1, e2)
+  desugar: Subscript(e1, e2) -> BinExp(AtIndex(), e1, e2)
+  
+  // Skips if string-starts-with or str-to-oct fails.
+  desugar: IntValue(i) -> IntValue(i')
+  where
+    i' := <string-starts-with(|"0"); convert-to-oct> i
+
+signature // stdlib
+  sorts List(a)
+strategies // stdlib
+  oct-string-to-int :: string -> int
+  int-to-string :: int -> string
+  string-starts-with(|string) :: string -> string 

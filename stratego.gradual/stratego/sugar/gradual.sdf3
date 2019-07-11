@@ -24,11 +24,14 @@ imports
     TYPE.REAL = [real]
     TYPE.DYN = [?]
     TYPE.TUP = [([{TYPE ", "}+])]
+    TYPE.STRAT = [[TYPE] -> [TYPE]]
+    ConstType.C_STRING = [string] {prefer}
+   
     
   context-free syntax
-    RuleDef.RDeclNoArgs = <<Id> :: <TYPE> -\> <TYPE>>
-  	RuleDef.RDecl = <<Id> :: [<{TYPE ", "}+>] -\> <TYPE>>
-  	RuleDef.RDeclT = <<Id> :: [<{TYPE ", "}*> | <{TYPE ", "}*>] * <TYPE> -\> <TYPE>>
+    RuleDef.RDeclNoArgs = <<Id> :: <TYPE>>
+  	RuleDef.RDecl = <<Id>(<{TYPE ", "}*>) :: <TYPE>>
+  	RuleDef.RDeclT = <<Id>(<{TYPE ", "}*> | <{TYPE ", "}*>) :: <TYPE>>
 
   context-free priorities
   	Term.OfType > Term.App
