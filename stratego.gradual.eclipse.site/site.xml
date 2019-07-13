@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<site>
+   <feature url="features/stratego.gradual.eclipse.feature_0.1.0.qualifier.jar" id="stratego.gradual.eclipse.feature" version="0.1.0.qualifier">
+      <category name="StrategoGradual"/>
+   </feature>
+   <category-def name="StrategoGradual" label="Stratego Gradual language Eclipse plugin">
+      <description>
+         Stratego Gradual language Eclipse plugin.
+      </description>
+   </category-def>
+</site>

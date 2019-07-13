@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feature
+      id="stratego.gradual.eclipse.feature"
+      label="Stratego Gradual language Eclipse plugin"
+      version="0.1.0.qualifier">
+
+   <includes
+         id="org.metaborg.spoofax.eclipse.feature"
+         version="0"/>
+
+   <plugin
+         id="stratego.gradual.eclipse"
+         download-size="0"
+         install-size="0"
+         version="0.1.0.qualifier"/>
+
+</feature>
